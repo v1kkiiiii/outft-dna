@@ -135,7 +135,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <span class="cam-hint" id="cam-hint">align outfit in frame</span>
   </div>
 
-  <video id="video" autoplay playsinline muted></video>
+  <video id="video" autoplay playsinline muted style="display:block"></video>
   <canvas id="capture-canvas"></canvas>
 
   <div class="vf-overlay">
@@ -156,7 +156,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   </div>
 
   <!-- camera error state (shown if permission denied) -->
-  <div class="cam-error hidden" id="cam-error">
+  <div class="cam-error" id="cam-error" style="display:none">
     <div class="cam-error-icon">⟳</div>
     <h2>camera access needed</h2>
     <p>Allow camera access in your browser settings, then tap to try again.</p>
@@ -201,7 +201,7 @@ function goTo(name) {
 
 async function startCamera() {
   goTo('camera');
-  document.getElementById('cam-error').classList.add('hidden');
+  document.getElementById('cam-error').style.display='none';
   await openStream(currentFacing);
 }
 
@@ -216,7 +216,7 @@ async function openStream(facing) {
     vid.srcObject = stream;
     await vid.play();
   } catch(e) {
-    document.getElementById('cam-error').classList.remove('hidden');
+    document.getElementById('cam-error').style.display='flex';
     document.getElementById('cam-hint').textContent = 'camera unavailable';
     console.error('Camera error:', e);
   }

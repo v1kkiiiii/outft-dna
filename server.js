@@ -6,7 +6,6 @@ import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -15,6 +14,11 @@ app.use(express.static(join(__dirname, 'public')));
 app.post('/api/analyze', async (req, res) => {
   const { imageBase64, mediaType = 'image/jpeg' } = req.body;
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 required' });
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set on server' });
+
+  const client = new Anthropic({ apiKey });
 
   try {
     const message = await client.messages.create({
