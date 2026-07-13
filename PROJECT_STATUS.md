@@ -8,7 +8,7 @@ Source of truth for wave progress. Owned by the lead orchestrator. PRD: `deliver
 |---|---|---|
 | 0 | Orchestrator foundation: contracts, conventions, status tracking | IN PROGRESS |
 | 1 | Parallel specification (PRODUCT_SPEC, ARCHITECTURE, DATABASE_SCHEMA, API, ML, SECURITY, ACCEPTANCE_TESTS, AGENTS) | IN PROGRESS |
-| 2 | Parallel foundation: mobile restructure, supabase/ migrations+RLS, worker/, CI | BLOCKED — needs Supabase account (founder) |
+| 2 | Parallel foundation: mobile restructure, supabase/ migrations+RLS, worker/, CI | IN PROGRESS — DB migrations + RLS done, analysis worker done; mobile data-layer rewrite + CI not started (paused: budget) |
 | 3 | Verified vertical slices: auth/profile → capture/upload → analysis/result → history/offline → deletion | NOT STARTED |
 | 4 | Adversarial verification: security, physical-device QA, performance/cost | NOT STARTED |
 | 5 | P1: social, premium, Wrapped | GATED on P0 green |

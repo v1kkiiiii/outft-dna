@@ -1,0 +1,24 @@
+{
+  "name": "outft-analysis-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OUTFT server-side analysis worker: polls queued analysis jobs, calls Claude vision, validates OutfitAnalysisV1, writes immutable results. Holds the Anthropic API key server-side only.",
+  "type": "module",
+  "main": "dist/worker.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/worker.js",
+    "dev": "tsx watch src/worker.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@supabase/supabase-js": "^2.45.4",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
+  }
+}
