@@ -1,0 +1,868 @@
+openapi: 3.1.0
+info:
+  title: OUTFT Privileged API
+  version: 1.0.0
+  description: >
+    Privileged endpoints for the OUTFT iOS application (PRD v1.0, 2026-07-13).
+    Covers the P0 core journey — upload intent, analysis jobs, outfit deletion,
+    account export, and account deletion — plus P1 stubs for publishing and
+    RevenueCat webhooks. RLS-safe direct reads (PRD 13.1) are performed via the
+    Supabase client and are not part of this contract. Every mutation requires
+    an Idempotency-Key header; every response carries an X-Correlation-Id
+    header (PRD 7.3, 13.2, 17.1).
+  x-requirement-id: PRD-13
+servers:
+  - url: https://api.outft.app
+    description: Production
+  - url: https://api.staging.outft.app
+    description: Staging
+security:
+  - bearerAuth: []
+tags:
+  - name: outfits
+    description: Outfit upload, analysis, and deletion (PRD 8.1, 8.4, 10.4)
+  - name: account
+    description: Account export and deletion (PRD 8.5, 9.10)
+  - name: webhooks
+    description: External provider webhooks (PRD 13.2, P1)
+
+paths:
+  /v1/outfits/upload-intent:
+    post:
+      operationId: createUploadIntent
+      summary: Create an outfit record and a short-lived signed upload URL
+      description: >
+        Creates the outfit with owner and client idempotency key, and returns a
+        short-lived signed private upload destination (PRD 10.4 steps 1-3).
+        Retries with the same clientIdempotencyKey return the same outfitId and
+        must not create duplicate outfit records (PRD 7.1, 12.1).
+      tags: [outfits]
+      x-requirement-id: PRD-13.2, PRD-10.4, PRD-9.4
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadIntentRequest'
+      responses:
+        '201':
+          description: Outfit created and signed upload URL issued.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadIntentResponse'
+        '200':
+          description: >
+            Idempotent replay — an outfit already exists for this
+            (owner, clientIdempotencyKey) pair; the existing intent is returned.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadIntentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          $ref: '#/components/responses/ImageTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedImage'
+        '422':
+          $ref: '#/components/responses/DimensionsUnsupported'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+  /v1/outfits/{outfitId}/analysis-jobs:
+    post:
+      operationId: createAnalysisJob
+      summary: Create (or return the existing active) analysis job for an outfit
+      description: >
+        Verifies JWT, ownership, uploaded object existence, quota, type, size,
+        and active-job uniqueness, then transactionally creates the job and its
+        outbox record (PRD 10.4 steps 4-6). Idempotent — at most one active job
+        per outfit; a retry returns the existing job rather than creating a
+        duplicate (PRD 7.1, 10.5).
+      tags: [outfits]
+      x-requirement-id: PRD-13.2, PRD-10.4, PRD-10.5
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OutfitId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Analysis job created and queued.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisJobCreatedResponse'
+        '200':
+          description: Idempotent replay — the existing active job is returned.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisJobCreatedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Upload has not completed for this outfit.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                uploadIncomplete:
+                  value:
+                    code: UPLOAD_INCOMPLETE
+                    message: The outfit image upload has not finished yet.
+                    correlationId: 6f1c2b6e-1d2a-4c3b-9e8f-0a1b2c3d4e5f
+                    retryable: true
+        '429':
+          $ref: '#/components/responses/AnalysisRateLimited'
+        '503':
+          $ref: '#/components/responses/AnalysisUnavailable'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+  /v1/analysis-jobs/{jobId}:
+    get:
+      operationId: getAnalysisJob
+      summary: Get analysis job status and, when ready, the validated result
+      description: >
+        Polling endpoint for job progress (PRD 9.5, 10.4 step 9). Includes the
+        immutable OutfitAnalysisV1 payload once the job succeeds, or a safe
+        error descriptor when it fails. Clients poll with exponential backoff;
+        Realtime may accelerate but never replaces this endpoint.
+      tags: [outfits]
+      x-requirement-id: PRD-13.2, PRD-9.5, PRD-10.2
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Current job state.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisJobStatusResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+  /v1/outfits/{outfitId}:
+    delete:
+      operationId: deleteOutfit
+      summary: Delete an outfit and all dependent data
+      description: >
+        Verifies ownership, creates a resumable deletion operation, and
+        immediately hides the trace (PRD 8.4). Storage objects, analysis jobs,
+        analyses, publication references, and derived state are removed
+        asynchronously; Style DNA is recomputed. Idempotent — repeating the
+        request for an outfit already deleting/deleted returns the same
+        operation.
+      tags: [outfits]
+      x-requirement-id: PRD-13.2, PRD-8.4, AC-P0-009
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OutfitId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Deletion accepted; a resumable operation is in progress.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncOperationAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+  /v1/outfits/{outfitId}/publish:
+    post:
+      operationId: publishOutfit
+      summary: Explicitly publish a private trace (P1 stub)
+      description: >
+        P1 stub — explicit per-outfit publishing (PRD 9.12, 13.2). Contract to
+        be finalized after P0 release gates pass; not implemented in P0
+        deployments, which return ANALYSIS_TEMPORARILY_UNAVAILABLE-class 501
+        behavior via the standard error envelope.
+      tags: [outfits]
+      x-phase: P1
+      x-requirement-id: PRD-13.2, PRD-9.12, PRD-6.2
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OutfitId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '501':
+          description: Not implemented in P0.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+  /v1/account/export:
+    post:
+      operationId: requestAccountExport
+      summary: Request an export of the authenticated user's data
+      description: >
+        Creates a data_requests row of type export (PRD 9.10, 12.1). The export
+        package is produced asynchronously and expires within 7 days
+        (PRD 15.3). Idempotent — an in-flight export request is returned rather
+        than duplicated.
+      tags: [account]
+      x-requirement-id: PRD-13.2, PRD-9.10, PRD-15.3
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Export request accepted.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataRequestAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Account deletion is already pending; export is unavailable.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                deletionPending:
+                  value:
+                    code: ACCOUNT_DELETION_PENDING
+                    message: Your account deletion is in progress.
+                    correlationId: 9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d
+                    retryable: false
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+  /v1/account/delete:
+    post:
+      operationId: requestAccountDeletion
+      summary: Request irreversible deletion of the authenticated account
+      description: >
+        Revokes sessions immediately and starts a resumable, monitored deletion
+        job removing storage objects and user-owned data (PRD 8.5, 15.1,
+        15.3 — active-system deletion within 24 hours). Requires recent
+        reauthentication per client policy. Idempotent — a repeat request while
+        deletion is pending returns the same requestId.
+      tags: [account]
+      x-requirement-id: PRD-13.2, PRD-8.5, AC-P0-010
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Deletion accepted; sessions are revoked.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataRequestAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+  /v1/webhooks/revenuecat:
+    post:
+      operationId: revenueCatWebhook
+      summary: RevenueCat subscription webhook (P1 stub)
+      description: >
+        P1 stub — receives RevenueCat entitlement events (PRD 9.11, 13.2).
+        Must verify the webhook signature, deduplicate provider event IDs via
+        webhook_events, and be safely replayable. Uses shared-secret
+        authorization, not user bearer tokens. Not deployed in P0.
+      tags: [webhooks]
+      x-phase: P1
+      x-requirement-id: PRD-13.2, PRD-9.11, PRD-12.2
+      security:
+        - webhookAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: RevenueCat event envelope; schema frozen in P1.
+      responses:
+        '501':
+          description: Not implemented in P0.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/XCorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase Auth JWT (PRD 11.1, 15.1).
+    webhookAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: >
+        Server-only shared secret for provider webhooks; never present in the
+        mobile bundle (PRD 15.1).
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >
+        Client-generated UUID making the mutation safely retryable. Replays
+        with the same key must not create duplicate records (PRD 7.1, 13.2,
+        PRD 14).
+      schema:
+        type: string
+        format: uuid
+    OutfitId:
+      name: outfitId
+      in: path
+      required: true
+      description: Outfit UUID (PRD 12.1).
+      schema:
+        type: string
+        format: uuid
+    JobId:
+      name: jobId
+      in: path
+      required: true
+      description: Analysis job UUID (PRD 12.1).
+      schema:
+        type: string
+        format: uuid
+
+  headers:
+    XCorrelationId:
+      description: >
+        Correlation ID connecting mobile operation, API request, analysis job,
+        worker attempt, and provider call (PRD 7.3, 17.1). Present on every
+        response.
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Request failed validation.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing, invalid, or expired credentials (AUTH_REQUIRED / SESSION_EXPIRED).
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            authRequired:
+              value:
+                code: AUTH_REQUIRED
+                message: Please sign in to continue.
+                correlationId: 2b7e1516-28ae-4d2a-abf7-158809cf4f3c
+                retryable: false
+    PermissionDenied:
+      description: Authenticated but not permitted (PERMISSION_DENIED).
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource does not exist or is not visible to this user (CONTENT_NOT_VISIBLE).
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ImageTooLarge:
+      description: Image exceeds the 20 MB original limit (IMAGE_TOO_LARGE, PRD 9.4).
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnsupportedImage:
+      description: Media type is not supported (IMAGE_TYPE_UNSUPPORTED, PRD 9.4).
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    DimensionsUnsupported:
+      description: Image dimensions outside supported bounds (IMAGE_DIMENSIONS_UNSUPPORTED, PRD 9.4).
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    RateLimited:
+      description: Per-user, device, or IP rate limit exceeded (PRD 10.5, 15.1).
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    AnalysisRateLimited:
+      description: Analysis quota or rate limit exceeded (ANALYSIS_RATE_LIMITED, PRD 10.5).
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            rateLimited:
+              value:
+                code: ANALYSIS_RATE_LIMITED
+                message: You have reached your analysis limit for now.
+                correlationId: 4c9d2f81-7a3e-4b5c-8d6e-2f1a0b9c8d7e
+                retryable: true
+    AnalysisUnavailable:
+      description: >
+        Analysis temporarily unavailable, including the global kill switch
+        (ANALYSIS_TEMPORARILY_UNAVAILABLE, PRD 10.5).
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    DefaultError:
+      description: Any other error, using the stable error envelope (PRD 7.3).
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/XCorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorCode:
+      type: string
+      description: Stable machine-readable error code taxonomy (PRD 7.3).
+      x-requirement-id: PRD-7.3
+      enum:
+        - AUTH_REQUIRED
+        - SESSION_EXPIRED
+        - USERNAME_TAKEN
+        - IMAGE_TYPE_UNSUPPORTED
+        - IMAGE_TOO_LARGE
+        - IMAGE_DIMENSIONS_UNSUPPORTED
+        - UPLOAD_INCOMPLETE
+        - OFFLINE
+        - ANALYSIS_RATE_LIMITED
+        - ANALYSIS_TEMPORARILY_UNAVAILABLE
+        - ANALYSIS_INVALID_OUTPUT
+        - CONTENT_NOT_VISIBLE
+        - PERMISSION_DENIED
+        - ENTITLEMENT_REQUIRED
+        - ACCOUNT_DELETION_PENDING
+
+    ErrorResponse:
+      type: object
+      description: >
+        Stable error envelope: machine code, safe user message, correlation ID,
+        and retry classification (PRD 7.3). Never contains image bytes, tokens,
+        raw prompts, or raw model output (PRD 15.1).
+      x-requirement-id: PRD-7.3, PRD-15.1
+      required: [code, message, correlationId, retryable]
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          description: Safe, non-blaming user-displayable message.
+        correlationId:
+          type: string
+          format: uuid
+          description: Matches the X-Correlation-Id response header (PRD 17.1).
+        retryable:
+          type: boolean
+          description: Whether the client may retry without changing input (PRD 10.5).
+
+    OutfitStatus:
+      type: string
+      description: Canonical outfit lifecycle states (PRD 7.1).
+      x-requirement-id: PRD-7.1
+      enum:
+        - local_draft
+        - queued_offline
+        - uploading
+        - uploaded
+        - analysis_queued
+        - analyzing
+        - ready
+        - upload_failed
+        - analysis_failed_retryable
+        - analysis_failed_terminal
+        - deleting
+        - deleted
+
+    AnalysisJobStatus:
+      type: string
+      description: Server-side analysis job states (PRD 10.4, 12.1).
+      x-requirement-id: PRD-10.4, PRD-12.1
+      enum:
+        - queued
+        - running
+        - succeeded
+        - failed_retryable
+        - failed_terminal
+
+    OutfitCategory:
+      type: string
+      description: Optional capture category (PRD 9.4).
+      x-requirement-id: PRD-9.4
+      enum:
+        - daily
+        - night_out
+        - work
+        - gym
+        - travel
+        - event
+
+    UploadIntentRequest:
+      type: object
+      description: Upload intent for one normalized outfit image (PRD 9.4, 10.4).
+      x-requirement-id: PRD-13.2, PRD-9.4
+      required: [clientIdempotencyKey, mediaType, byteSize, width, height]
+      properties:
+        clientIdempotencyKey:
+          type: string
+          format: uuid
+          description: >
+            Generated on-device before the first network operation; unique per
+            (owner, key) (PRD 12.1, 14).
+        mediaType:
+          type: string
+          description: Normalized media type; GIF excluded from P0 (PRD 9.4).
+          enum:
+            - image/jpeg
+            - image/png
+            - image/heic
+            - image/heif
+            - image/webp
+        byteSize:
+          type: integer
+          minimum: 1
+          maximum: 6291456
+          description: Normalized upload size in bytes; at most 6 MB (PRD 9.4).
+        width:
+          type: integer
+          minimum: 512
+          maximum: 3072
+          description: Decoded pixel width after normalization (PRD 9.4).
+        height:
+          type: integer
+          minimum: 512
+          maximum: 3072
+          description: Decoded pixel height after normalization (PRD 9.4).
+        category:
+          $ref: '#/components/schemas/OutfitCategory'
+
+    UploadIntentResponse:
+      type: object
+      description: Created outfit and short-lived signed upload destination (PRD 15.3 — URLs live minutes and are never persisted).
+      x-requirement-id: PRD-13.2, PRD-10.4, PRD-15.3
+      required: [outfitId, uploadUrl, expiresAt]
+      properties:
+        outfitId:
+          type: string
+          format: uuid
+        uploadUrl:
+          type: string
+          format: uri
+          description: Short-lived signed private upload URL. Do not log or persist.
+        expiresAt:
+          type: string
+          format: date-time
+          description: UTC expiry of the signed upload URL.
+
+    AnalysisJobCreatedResponse:
+      type: object
+      x-requirement-id: PRD-13.2, PRD-10.4
+      required: [jobId, status]
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/AnalysisJobStatus'
+
+    AnalysisJobStatusResponse:
+      type: object
+      description: >
+        Job progress envelope. `analysis` is present only when status is
+        `succeeded`; `error` is present only for failed states.
+      x-requirement-id: PRD-13.2, PRD-9.5, PRD-10.2
+      required: [jobId, outfitId, status, attemptCount]
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        outfitId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/AnalysisJobStatus'
+        attemptCount:
+          type: integer
+          minimum: 0
+          maximum: 3
+          description: Worker attempts so far; at most three (PRD 8.3, 10.5).
+        analysis:
+          $ref: '#/components/schemas/OutfitAnalysisV1'
+        error:
+          $ref: '#/components/schemas/ErrorResponse'
+
+    AsyncOperationAccepted:
+      type: object
+      description: Handle for a resumable server-side operation (PRD 8.4).
+      x-requirement-id: PRD-13.2, PRD-8.4
+      required: [operationId]
+      properties:
+        operationId:
+          type: string
+          format: uuid
+
+    DataRequestAccepted:
+      type: object
+      description: Handle for an accepted export/deletion data request (PRD 12.1 data_requests).
+      x-requirement-id: PRD-13.2, PRD-12.1
+      required: [requestId]
+      properties:
+        requestId:
+          type: string
+          format: uuid
+
+    GarmentDetection:
+      type: object
+      x-requirement-id: PRD-10.2
+      required: [category, label, confidence]
+      properties:
+        category:
+          type: string
+          description: Garment category from the versioned taxonomy (PRD 10.3).
+          examples: [outerwear]
+        label:
+          type: string
+          description: Taxonomy garment label; unknown provider labels are mapped or rejected.
+          examples: [blazer]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    ColorDetection:
+      type: object
+      x-requirement-id: PRD-10.2
+      required: [hex, label, weight]
+      properties:
+        hex:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          examples: ['#D8C9B5']
+        label:
+          type: string
+          examples: [warm cream]
+        weight:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    StyleTrait:
+      type: object
+      x-requirement-id: PRD-10.2
+      required: [label, confidence]
+      properties:
+        label:
+          type: string
+          examples: [structured]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    OutfitAnalysisV1:
+      type: object
+      description: >
+        Immutable, versioned analysis result (PRD 10.2). Style scores are
+        0-100 per aesthetic label and sum to 100 within a 0.5 tolerance before
+        final normalization (PRD 10.3). Garment and color lists are bounded.
+        Raw model output is never included.
+      x-requirement-id: PRD-10.2, PRD-10.3
+      required:
+        - schemaVersion
+        - modelVersion
+        - promptVersion
+        - garments
+        - colors
+        - styleTraits
+        - styleScores
+        - confidence
+        - insight
+      properties:
+        schemaVersion:
+          type: string
+          const: '1.0'
+        modelVersion:
+          type: string
+          description: Provider model version identifier; hidden from normal UI but stored (PRD 6.1).
+          examples: [provider-model-version]
+        promptVersion:
+          type: string
+          examples: [outft-analysis-v1]
+        garments:
+          type: array
+          minItems: 0
+          maxItems: 12
+          items:
+            $ref: '#/components/schemas/GarmentDetection'
+        colors:
+          type: array
+          minItems: 1
+          maxItems: 8
+          items:
+            $ref: '#/components/schemas/ColorDetection'
+        styleTraits:
+          type: array
+          minItems: 0
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/StyleTrait'
+        styleScores:
+          type: object
+          description: >
+            Aesthetic label to score map from the versioned taxonomy; values
+            0-100 summing to 100 within 0.5 tolerance (PRD 10.3).
+          additionalProperties:
+            type: number
+            minimum: 0
+            maximum: 100
+          examples:
+            - Minimalist: 42
+              Classic: 28
+              Quiet luxury: 20
+              Scandi: 10
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Overall confidence; stored, conditionally displayed (PRD 9.6).
+        insight:
+          type: string
+          maxLength: 140
+          description: >
+            One-sentence plain-language insight; no disallowed evaluative
+            language about attractiveness, body value, gender correctness,
+            wealth, or identity certainty (PRD 10.3, 15.4).
+          examples:
+            - Clean tailoring and a quiet palette give this look a refined, minimal rhythm.
