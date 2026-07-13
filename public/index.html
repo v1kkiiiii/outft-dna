@@ -410,6 +410,36 @@ html,body{height:100%;background:#1A1916;font-family:'Jost',sans-serif;-webkit-f
 .premium-reminder h2{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;}
 .premium-price{font-size:11px;letter-spacing:.06em;white-space:nowrap;}
 .premium-reminder p{font-size:10px;line-height:1.5;color:#B5ADA3;margin-top:5px;}
+.upgrade-card{margin:16px 22px;padding:15px 16px;border:1px solid #E8E4DE;background:#FAF9F7;border-radius:10px;cursor:pointer;}
+.upgrade-kicker{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#9C9286;}
+.upgrade-card h3{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:500;color:#1A1916;line-height:1.1;margin-bottom:6px;}
+.upgrade-card p{font-size:11px;line-height:1.55;color:#5A5549;}
+.delta-list{display:flex;flex-direction:column;gap:8px;margin-top:11px;}
+.delta-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;font-size:11px;color:#5A5549;}
+.delta-row strong{font-weight:500;color:#1A1916;}
+.timeline-tools{margin:0 0 14px;display:flex;flex-direction:column;gap:10px;}
+.timeline-scrub{display:grid;grid-template-columns:36px 1fr 36px;gap:9px;align-items:center;}
+.timeline-scrub span{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#9C9286;}
+.timeline-scrub input{width:100%;accent-color:#1A1916;}
+.timeline-chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;}
+.timeline-chips::-webkit-scrollbar{display:none;}
+.timeline-chip{flex-shrink:0;border:1px solid #E0D8CB;background:#fff;border-radius:999px;padding:6px 10px;font-size:9px;color:#6F675C;letter-spacing:.06em;cursor:pointer;}
+.timeline-chip.on{background:#1A1916;border-color:#1A1916;color:#fff;}
+.wear-again{display:grid;grid-template-columns:82px 1fr;gap:12px;align-items:center;}
+.wear-photo{aspect-ratio:3/4;border:1px solid #E8E4DE;background:linear-gradient(150deg,#EFECE7 0 42%,#C9C1B6 42% 58%,#F8F6F2 58%);background-size:cover;background-position:center;}
+.echo-explain{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 22px 16px;}
+.echo-note{border:1px solid #E8E4DE;border-radius:10px;padding:11px;background:#FAF9F7;}
+.echo-note p:first-child{font-family:'Cormorant Garamond',serif;font-size:16px;color:#1A1916;margin-bottom:4px;}
+.echo-note p:last-child{font-size:10px;line-height:1.45;color:#6F675C;}
+.circle-vote{margin:0 22px 18px;border:1px solid #E8E4DE;border-radius:10px;padding:14px 14px 12px;background:#fff;}
+.circle-vote h3{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:500;color:#1A1916;margin-bottom:4px;}
+.circle-vote p{font-size:10.5px;line-height:1.5;color:#6F675C;}
+.vote-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px;}
+.vote-option{border:1px solid #E8E4DE;background:#FAF9F7;padding:10px;border-radius:8px;text-align:left;cursor:pointer;}
+.vote-option strong{display:block;font-size:12px;color:#1A1916;font-weight:500;margin-bottom:3px;}
+.vote-option span{font-size:10px;color:#8A8278;}
+.receipt-share{display:flex;align-items:center;justify-content:center;gap:4px;margin-top:8px;font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:#8A8278;}
+.receipt-share span{display:inline-block;width:2px;height:18px;background:#1A1916;box-shadow:4px 0 0 #1A1916,8px 0 0 #C5BEB3,12px 0 0 #1A1916,18px 0 0 #1A1916,24px 0 0 #C5BEB3,29px 0 0 #1A1916;}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important;}}
 </style>
 </head>
@@ -480,6 +510,14 @@ html,body{height:100%;background:#1A1916;font-family:'Jost',sans-serif;-webkit-f
 
     <div class="insight" id="home-insight">
       <p>This week, your style has been tracing quiet confidence. 5 people echoed your fits.</p>
+    </div>
+    <div class="upgrade-card wear-again" data-postidx="8">
+      <div class="wear-photo" id="wear-again-photo" aria-hidden="true"></div>
+      <div>
+        <div class="upgrade-kicker"><span>Wear this again</span><span>72 F</span></div>
+        <h3>linen jacket day</h3>
+        <p>Today matches your 9 June trace: light weather, late plans, and a coastal palette that performed well.</p>
+      </div>
     </div>
     <section class="home-friends" id="home-friends" aria-labelledby="home-friends-title">
       <div class="home-friends-head"><h2 id="home-friends-title">Friends&rsquo; traces.</h2><span data-current-date>22 June</span></div>
@@ -632,6 +670,7 @@ html,body{height:100%;background:#1A1916;font-family:'Jost',sans-serif;-webkit-f
       <div class="rdiv"></div>
       <p class="rrow"><span id="rcpt-cat">Daily</span> · 22 June 2026</p>
       <p class="rrow">14:32 · afternoon window</p>
+      <p class="rrow">scan opens outfit, DNA, comments, and echoes</p>
       <div class="rdiv"></div>
       <div class="dna-result" id="dna-result" hidden>
         <p class="dna-insight" id="dna-insight"></p>
@@ -645,6 +684,7 @@ html,body{height:100%;background:#1A1916;font-family:'Jost',sans-serif;-webkit-f
           <rect x="0" y="0" width="2" height="30" fill="#3A3830"/><rect x="4" y="0" width="1" height="30" fill="#3A3830"/><rect x="7" y="0" width="3" height="30" fill="#3A3830"/><rect x="12" y="0" width="1" height="30" fill="#3A3830"/><rect x="15" y="0" width="2" height="30" fill="#3A3830"/><rect x="19" y="0" width="1" height="30" fill="#3A3830"/><rect x="22" y="0" width="3" height="30" fill="#3A3830"/><rect x="27" y="0" width="1" height="30" fill="#3A3830"/><rect x="30" y="0" width="2" height="30" fill="#3A3830"/><rect x="34" y="0" width="1" height="30" fill="#3A3830"/><rect x="37" y="0" width="3" height="30" fill="#3A3830"/><rect x="42" y="0" width="2" height="30" fill="#3A3830"/><rect x="46" y="0" width="1" height="30" fill="#3A3830"/><rect x="49" y="0" width="2" height="30" fill="#3A3830"/><rect x="53" y="0" width="3" height="30" fill="#3A3830"/><rect x="58" y="0" width="1" height="30" fill="#3A3830"/><rect x="61" y="0" width="2" height="30" fill="#3A3830"/><rect x="65" y="0" width="1" height="30" fill="#3A3830"/><rect x="68" y="0" width="3" height="30" fill="#3A3830"/><rect x="73" y="0" width="1" height="30" fill="#3A3830"/><rect x="76" y="0" width="2" height="30" fill="#3A3830"/><rect x="80" y="0" width="1" height="30" fill="#3A3830"/><rect x="83" y="0" width="3" height="30" fill="#3A3830"/><rect x="88" y="0" width="2" height="30" fill="#3A3830"/><rect x="92" y="0" width="1" height="30" fill="#3A3830"/><rect x="95" y="0" width="2" height="30" fill="#3A3830"/><rect x="99" y="0" width="3" height="30" fill="#3A3830"/><rect x="104" y="0" width="1" height="30" fill="#3A3830"/><rect x="107" y="0" width="2" height="30" fill="#3A3830"/><rect x="111" y="0" width="1" height="30" fill="#3A3830"/><rect x="114" y="0" width="3" height="30" fill="#3A3830"/><rect x="119" y="0" width="2" height="30" fill="#3A3830"/><rect x="123" y="0" width="1" height="30" fill="#3A3830"/><rect x="126" y="0" width="2" height="30" fill="#3A3830"/><rect x="130" y="0" width="3" height="30" fill="#3A3830"/><rect x="135" y="0" width="1" height="30" fill="#3A3830"/><rect x="138" y="0" width="2" height="30" fill="#3A3830"/>
         </svg>
       </div>
+      <div class="receipt-share"><span aria-hidden="true"></span> shareable trace receipt</div>
       <p class="rfooter">trace · keep · revisit · 2026</p>
     </div>
     <div class="rcpt-actions">
@@ -695,6 +735,12 @@ html,body{height:100%;background:#1A1916;font-family:'Jost',sans-serif;-webkit-f
 
     <div style="margin:0 22px 18px;background:#F7F7F7;border-radius:12px;padding:14px 16px;">
       <p style="font-size:11px;color:#5A5549;line-height:1.65;">An <strong style="color:#1A1916;font-weight:500;">echo</strong> is when someone else posts a fit that matches yours — same palette, silhouette, or vibe. It's not your own past fit. It's a stranger who dresses like you.</p>
+    </div>
+    <div class="echo-explain">
+      <div class="echo-note"><p>Palette</p><p>cream, charcoal, and soft brown appear in both traces.</p></div>
+      <div class="echo-note"><p>Silhouette</p><p>long vertical line, relaxed trouser, sharper shoulder.</p></div>
+      <div class="echo-note"><p>Layering</p><p>outer layer carries the look instead of accessories.</p></div>
+      <div class="echo-note"><p>Mood</p><p>quiet, polished, not over-styled.</p></div>
     </div>
 
     <span class="sl" style="margin-bottom:10px;">your latest fit · their closest match</span>
@@ -788,6 +834,11 @@ html,body{height:100%;background:#1A1916;font-family:'Jost',sans-serif;-webkit-f
           <div class="cdot" style="background:#C4B098;"></div>
           <div class="cdot" style="background:#E8D8C4;"></div>
         </div>
+        <div class="upgrade-card" style="margin:0 0 14px;" data-go="dna">
+          <div class="upgrade-kicker"><span>Proof of wear</span><span>this month</span></div>
+          <h3 id="profile-dna-shift-title">Silhouette became 8% more structured.</h3>
+          <p id="profile-dna-shift-copy">Repeated blazer, trouser, and monochrome traces moved your DNA toward Scandi structure.</p>
+        </div>
         <!-- streak block in trace tab -->
         <div class="streak-bar" style="margin:0 0 14px;" data-go="camera">
           <div class="streak-num" data-streak-count>14</div>
@@ -810,10 +861,24 @@ html,body{height:100%;background:#1A1916;font-family:'Jost',sans-serif;-webkit-f
 
       <!-- BACKLOG tab -->
       <div class="ptab-panel" id="pp-backlog">
-        <div style="display:flex;gap:6px;margin-bottom:12px;">
-          <span class="rp on" data-rp="weeks" style="font-size:10px;padding:5px 11px;border-radius:999px;background:#1A1916;color:#fff;cursor:pointer;">weeks</span>
-          <span class="rp" data-rp="months" style="font-size:10px;padding:5px 11px;border-radius:999px;border:1px solid #E0D8CB;color:#8A8278;cursor:pointer;">months</span>
-          <span class="rp" data-rp="years" style="font-size:10px;padding:5px 11px;border-radius:999px;border:1px solid #E0D8CB;color:#8A8278;cursor:pointer;">years</span>
+        <div class="timeline-tools">
+          <div class="timeline-scrub">
+            <span>Mar</span>
+            <input id="trace-timeline-range" type="range" min="0" max="3" value="3" aria-label="Trace timeline month">
+            <span id="trace-timeline-label">Jun</span>
+          </div>
+          <div class="timeline-chips" aria-label="Trace filters">
+            <button class="timeline-chip on" data-timeline-filter="all">all</button>
+            <button class="timeline-chip" data-timeline-filter="city">city</button>
+            <button class="timeline-chip" data-timeline-filter="occasion">occasion</button>
+            <button class="timeline-chip" data-timeline-filter="color">color</button>
+            <button class="timeline-chip" data-timeline-filter="aesthetic">aesthetic</button>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <span class="rp on" data-rp="weeks" style="font-size:10px;padding:5px 11px;border-radius:999px;background:#1A1916;color:#fff;cursor:pointer;">weeks</span>
+            <span class="rp" data-rp="months" style="font-size:10px;padding:5px 11px;border-radius:999px;border:1px solid #E0D8CB;color:#8A8278;cursor:pointer;">months</span>
+            <span class="rp" data-rp="years" style="font-size:10px;padding:5px 11px;border-radius:999px;border:1px solid #E0D8CB;color:#8A8278;cursor:pointer;">years</span>
+          </div>
         </div>
         <span class="sl" id="bl-note" style="padding:0;margin-bottom:10px;">87 fits traced</span>
         <div class="pgrid" id="backlog-grid"></div>
@@ -871,6 +936,16 @@ html,body{height:100%;background:#1A1916;font-family:'Jost',sans-serif;-webkit-f
       <li><span class="ddot" style="background:#C4B098"></span>Coastal<span class="dpct">11%</span></li>
       <li><span class="ddot" style="background:#D8CFC4"></span>Eclectic<span class="dpct">7%</span></li>
     </ul>
+    <div class="upgrade-card">
+      <div class="upgrade-kicker"><span>Weekly DNA change</span><span>proof of wear</span></div>
+      <h3 id="dna-shift-title">Your silhouette became 8% more structured.</h3>
+      <p id="dna-shift-copy">Three recent traces repeated sharp shoulders, long lines, and darker neutrals.</p>
+      <div class="delta-list" id="dna-delta-list">
+        <div class="delta-row"><span>Structured silhouette</span><strong>+8%</strong></div>
+        <div class="delta-row"><span>Dark neutral palette</span><strong>+5%</strong></div>
+        <div class="delta-row"><span>Coastal softness</span><strong>-3%</strong></div>
+      </div>
+    </div>
     <div class="mini" data-go="twins"><div class="mini-inf"><p class="mt">ft. twin · @lenav</p><p class="ms">94% echo · closest style match</p></div><svg class="arr" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
     <div class="mini" data-go="wrapped"><div class="mini-inf"><p class="mt">May wrapped</p><p class="ms">your month in fits</p></div><svg class="arr" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
     <div class="mini" data-go="premium"><div class="mini-inf"><p class="mt">Advanced analytics</p><p class="ms">premium only</p></div><svg class="arr" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>
@@ -885,11 +960,11 @@ html,body{height:100%;background:#1A1916;font-family:'Jost',sans-serif;-webkit-f
     </div>
     <button data-go="dna" style="position:absolute;top:14px;right:18px;background:none;border:none;cursor:pointer;z-index:5;"><svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:rgba(255,255,255,.5);fill:none;stroke-width:1.5;stroke-linecap:round;"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     <div style="flex:1;position:relative;">
-      <div class="wpage on" data-pg="1"><p style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.45);margin:0 0 18px;">may wrapped</p><p style="font-family:'Cormorant Garamond',serif;font-size:42px;color:#fff;margin:0 0 8px;">26 fits</p><p style="font-size:12px;color:rgba(255,255,255,.55);">your most consistent month yet</p></div>
-      <div class="wpage" data-pg="2"><p style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.45);margin:0 0 18px;">top aesthetic</p><p style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:32px;color:#fff;margin:0 0 8px;">Quiet luxury</p><p style="font-size:12px;color:rgba(255,255,255,.55);">41% of your fits this month</p></div>
-      <div class="wpage" data-pg="3"><p style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.45);margin:0 0 18px;">most active window</p><p style="font-family:'Cormorant Garamond',serif;font-size:32px;color:#fff;margin:0 0 8px;">Afternoon</p><p style="font-size:12px;color:rgba(255,255,255,.55);">64% of fits posted 11–17</p></div>
-      <div class="wpage" data-pg="4"><p style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.45);margin:0 0 18px;">fashion confidence</p><p style="font-family:'Cormorant Garamond',serif;font-size:56px;color:#fff;margin:0 0 8px;">87</p><p style="font-size:12px;color:rgba(255,255,255,.55);">up 6 points from april</p></div>
-      <div class="wpage" data-pg="5"><p style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.45);margin:0 0 22px;">growth this month</p><p style="font-size:13px;color:rgba(255,255,255,.8);margin:0 0 7px;">+4% scandi · +2 echo matches</p><p style="font-size:13px;color:rgba(255,255,255,.8);margin:0 0 26px;"> 14 day streak — keep going</p><button data-go="dna" style="background:#fff;color:#1A1916;border:none;border-radius:999px;padding:12px 28px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-family:'Jost',sans-serif;cursor:pointer;">done</button></div>
+      <div class="wpage on" data-pg="1"><p style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.45);margin:0 0 18px;">june wrapped</p><p style="font-family:'Cormorant Garamond',serif;font-size:42px;color:#fff;margin:0 0 8px;">26 fits</p><p style="font-size:12px;color:rgba(255,255,255,.55);">your strongest look was the 14 June blazer trace</p></div>
+      <div class="wpage" data-pg="2"><p style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.45);margin:0 0 18px;">unexpected color</p><p style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:32px;color:#fff;margin:0 0 8px;">charcoal brown</p><p style="font-size:12px;color:rgba(255,255,255,.55);">appeared 5 times after never showing in may</p></div>
+      <div class="wpage" data-pg="3"><p style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.45);margin:0 0 18px;">closest twin</p><p style="font-family:'Cormorant Garamond',serif;font-size:32px;color:#fff;margin:0 0 8px;">@lenav</p><p style="font-size:12px;color:rgba(255,255,255,.55);">94% echo by palette, silhouette, and layering</p></div>
+      <div class="wpage" data-pg="4"><p style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.45);margin:0 0 18px;">neglected aesthetic</p><p style="font-family:'Cormorant Garamond',serif;font-size:42px;color:#fff;margin:0 0 8px;">romantic</p><p style="font-size:12px;color:rgba(255,255,255,.55);">only one soft drape trace this month</p></div>
+      <div class="wpage" data-pg="5"><p style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.45);margin:0 0 22px;">biggest DNA change</p><p style="font-size:13px;color:rgba(255,255,255,.8);margin:0 0 7px;">+8% structured silhouette</p><p style="font-size:13px;color:rgba(255,255,255,.8);margin:0 0 26px;">+5% dark neutral palette</p><button data-go="dna" style="background:#fff;color:#1A1916;border:none;border-radius:999px;padding:12px 28px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-family:'Jost',sans-serif;cursor:pointer;">done</button></div>
     </div>
     <div style="position:absolute;inset:0;display:flex;top:48px;"><div data-wtap="prev" style="flex:1;cursor:pointer;z-index:2;"></div><div data-wtap="next" style="flex:1;cursor:pointer;z-index:2;"></div></div>
   </div>
@@ -935,6 +1010,14 @@ html,body{height:100%;background:#1A1916;font-family:'Jost',sans-serif;-webkit-f
     <div class="premium-reminder" data-go="premium" role="button" tabindex="0">
       <div class="premium-reminder-top"><h2>DNA Premium</h2><span class="premium-price">$6.99/mo · $49.99/yr</span></div>
       <p>Unlock advanced DNA shifts, unlimited archive, and deeper twin matching.</p>
+    </div>
+    <div class="circle-vote">
+      <h3>Private circle: dinner looks</h3>
+      <p>Maya, Noor, and Lila are voting on your two saved options for tonight. Notes stay inside the circle.</p>
+      <div class="vote-row">
+        <button class="vote-option" data-vote-option="A"><strong>Look A</strong><span>67% chose structured black</span></button>
+        <button class="vote-option" data-vote-option="B"><strong>Look B</strong><span>33% chose silk neutral</span></button>
+      </div>
     </div>
     <div class="actr"><svg style="stroke:#1A1916;" viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.7-9.5-9C1.2 8.1 2.6 4.7 6 4.2c2-.3 3.7.7 6 3 2.3-2.3 4-3.3 6-3 3.4.5 4.8 3.9 3.5 7.3-2 4.3-9.5 9-9.5 9z"/></svg><p class="actt" data-action="home-friends"><strong data-person="theo" style="cursor:pointer;">@theo</strong> echoed your trace · <span class="atm">5m</span></p></div>
     <div class="actr"><svg style="stroke:#8A8278;" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/></svg><p class="actt" data-go="twins"><strong data-person="jude" style="cursor:pointer;">@jude</strong> started following your trace · <span class="atm">2h</span></p></div>
@@ -2073,6 +2156,7 @@ var DEFAULT_APP_STATE={
   following:[],
   isPremium:false,
   collections:{'Night out':[],'Work':[],'Gym':[],'Inspo':[]},
+  dnaShift:{title:'Silhouette became 8% more structured.',copy:'Repeated blazer, trouser, and monochrome traces moved your DNA toward Scandi structure.',deltas:[['Structured silhouette','+8%'],['Dark neutral palette','+5%'],['Coastal softness','-3%']]},
   sentMessages:[]
 };
 
@@ -2080,7 +2164,7 @@ function loadAppState(){
   try{
     var stored=JSON.parse(localStorage.getItem(APP_STATE_KEY)||'null');
     if(!stored) return JSON.parse(JSON.stringify(DEFAULT_APP_STATE));
-    return Object.assign({},JSON.parse(JSON.stringify(DEFAULT_APP_STATE)),stored,{session:Object.assign({},DEFAULT_APP_STATE.session,stored.session||{}),profile:Object.assign({},DEFAULT_APP_STATE.profile,stored.profile||{}),collections:Object.assign({},DEFAULT_APP_STATE.collections,stored.collections||{})});
+    return Object.assign({},JSON.parse(JSON.stringify(DEFAULT_APP_STATE)),stored,{session:Object.assign({},DEFAULT_APP_STATE.session,stored.session||{}),profile:Object.assign({},DEFAULT_APP_STATE.profile,stored.profile||{}),collections:Object.assign({},DEFAULT_APP_STATE.collections,stored.collections||{}),dnaShift:Object.assign({},DEFAULT_APP_STATE.dnaShift,stored.dnaShift||{})});
   }catch(error){
     return JSON.parse(JSON.stringify(DEFAULT_APP_STATE));
   }
@@ -2104,9 +2188,39 @@ function applyPhotoToPlaceholder(element,dataUrl){
   element.style.backgroundPosition='center';
 }
 
+function renderDNAShift(){
+  var shift=APP_STATE.dnaShift||DEFAULT_APP_STATE.dnaShift;
+  var titleEls=[document.getElementById('profile-dna-shift-title'),document.getElementById('dna-shift-title')];
+  var copyEls=[document.getElementById('profile-dna-shift-copy'),document.getElementById('dna-shift-copy')];
+  titleEls.forEach(function(el){ if(el) el.textContent=shift.title; });
+  copyEls.forEach(function(el){ if(el) el.textContent=shift.copy; });
+  var list=document.getElementById('dna-delta-list');
+  if(list){
+    list.innerHTML='';
+    (shift.deltas||[]).forEach(function(delta){
+      var row=document.createElement('div');
+      row.className='delta-row';
+      row.innerHTML='<span>'+delta[0]+'</span><strong>'+delta[1]+'</strong>';
+      list.appendChild(row);
+    });
+  }
+}
+
+function buildShiftFromResult(result,category){
+  var top=(result.aesthetics&&result.aesthetics[0])?result.aesthetics[0]:{label:'Style DNA',pct:41};
+  var second=(result.aesthetics&&result.aesthetics[1])?result.aesthetics[1]:{label:'Structured silhouette',pct:23};
+  var lift=Math.max(3,Math.min(12,Math.round(top.pct/7)));
+  return {
+    title:top.label+' became '+lift+'% stronger.',
+    copy:'Your '+category.toLowerCase()+' trace reinforced '+top.label.toLowerCase()+' through palette, silhouette, and garment balance.',
+    deltas:[[top.label,'+'+lift+'%'],[second.label,'+'+Math.max(2,lift-3)+'%'],['Untracked drift','-2%']]
+  };
+}
+
 function renderAppState(){
   var profile=APP_STATE.profile;
   var latest=APP_STATE.latestOutfit;
+  renderDNAShift();
   document.querySelectorAll('[data-current-date]').forEach(function(element){element.textContent=formatToday();});
   document.querySelectorAll('[data-streak-count]').forEach(function(element){element.textContent=profile.streak;});
   document.getElementById('home-first-name').textContent=profile.name.split(' ')[0]+'.';
@@ -2124,6 +2238,8 @@ function renderAppState(){
   });
   var premiumButton=document.querySelector('[data-action="subscribe"]');
   if(premiumButton&&APP_STATE.isPremium){ premiumButton.textContent='premium active'; premiumButton.disabled=true; }
+  var wearPhoto=document.getElementById('wear-again-photo');
+  if(wearPhoto&&POSTS[8]) wearPhoto.style.background=POSTS[8]._tone||'linear-gradient(150deg,#EFECE7 0 42%,#C9C1B6 42% 58%,#F8F6F2 58%)';
   if(!latest) return;
   applyPhotoToPlaceholder(document.getElementById('home-hero'),latest.photo);
   applyPhotoToPlaceholder(document.getElementById('prof-hero'),latest.photo);
@@ -2157,6 +2273,7 @@ function renderAppState(){
 function saveCapturedOutfit(photo,result,category){
   APP_STATE.latestOutfit={id:String(Date.now()),photo:photo,result:result,category:category,capturedAt:new Date().toISOString()};
   APP_STATE.outfitCount+=1;
+  APP_STATE.dnaShift=buildShiftFromResult(result,category||'Daily');
   persistAppState();
   renderAppState();
 }
@@ -2594,6 +2711,19 @@ function saveLatestToCollection(name){
   persistAppState(); closeSheet(); toast('saved to '+name);
 }
 
+var TRACE_MONTHS=['Mar','Apr','May','Jun'];
+function updateTraceTimeline(value){
+  var idx=Math.max(0,Math.min(TRACE_MONTHS.length-1,Number(value)||0));
+  var label=document.getElementById('trace-timeline-label');
+  var note=document.getElementById('bl-note');
+  if(label) label.textContent=TRACE_MONTHS[idx];
+  if(note){
+    var active=document.querySelector('.timeline-chip.on');
+    var filter=active?active.textContent:'all';
+    note.textContent=TRACE_MONTHS[idx]+' traces · '+filter;
+  }
+}
+
 document.addEventListener('click',function(e){
   var gb=e.target.closest('[data-action="go-back"]'); if(gb){ goBack(); return; }
   if(e.target.id==='ov'||e.target.classList.contains('sh-pill')){ closeSheet(); return; }
@@ -2638,6 +2768,12 @@ document.addEventListener('click',function(e){
   var signApple=e.target.closest('[data-action="signin-apple"]'); if(signApple){ completeDemoSignin('apple','apple-demo@outft.app');return; }
   var signGuest=e.target.closest('[data-action="signin-guest"]'); if(signGuest){ completeDemoSignin('guest',null);return; }
   var homeFriends=e.target.closest('[data-action="home-friends"]'); if(homeFriends){ scrollHomeToFriends();return; }
+  var vote=e.target.closest('[data-vote-option]'); if(vote){ toast('circle vote saved'); vote.querySelector('span').textContent='your circle picked this look'; return; }
+  var tchip=e.target.closest('[data-timeline-filter]'); if(tchip){
+    document.querySelectorAll('.timeline-chip').forEach(function(chip){ chip.classList.toggle('on',chip===tchip); });
+    updateTraceTimeline(document.getElementById('trace-timeline-range').value);
+    return;
+  }
   var go=e.target.closest('[data-go]'); if(go){ show(go.getAttribute('data-go')); return; }
   var pk=e.target.closest('.pk'); if(pk){ show(pk.getAttribute('data-s')); return; }
   var ca=e.target.closest('[data-action="capture"]'); if(ca){ doCapture(); return; }
@@ -2662,6 +2798,7 @@ document.addEventListener('click',function(e){
     });
 
     buildBacklog(r);
+    updateTraceTimeline(document.getElementById('trace-timeline-range').value);
     return;
   }
     var cat=e.target.closest('[data-cat]'); if(cat){ document.querySelectorAll('.cat-btn').forEach(function(c){ c.classList.remove('sel'); }); cat.classList.add('sel'); return; }
@@ -2755,7 +2892,12 @@ document.addEventListener('touchend',function(e){ if(swX===null) return; var dx=
 
 inject();
 renderAppState();
+updateTraceTimeline(document.getElementById('trace-timeline-range').value);
 show(APP_STATE.session.isSignedIn?'home':'signin');
+
+document.getElementById('trace-timeline-range').addEventListener('input',function(event){
+  updateTraceTimeline(event.target.value);
+},false);
 
 document.getElementById('camera-flip').addEventListener('click',async function(event){
   event.stopPropagation();
