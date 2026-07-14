@@ -5,6 +5,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts } from '../theme';
 import { AnalysisResult, CATEGORIES } from '../data';
 import { analyzeOutfitReal } from '../analyze';
+import { backendAvailable } from '../lib/supabase';
+import { uploadAndAnalyze, pollAnalysis } from '../lib/outfitApi';
 import { useApp, LatestOutfit } from '../state';
 import { Photo, PillButton, Tag } from '../ui';
 
@@ -16,6 +18,8 @@ export default function CameraScreen() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [statusText, setStatusText] = useState('Reading your style DNA…');
+  const [isDemo, setIsDemo] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [brand, setBrand] = useState('');
   const [caption, setCaption] = useState('');
@@ -26,9 +30,34 @@ export default function CameraScreen() {
   const handlePicked = async (uri: string, base64?: string | null, mediaType?: string) => {
     setPhoto(uri);
     setResult(null);
+    setIsDemo(false);
     setAnalyzing(true);
     setOverlayOpen(true);
-    const res = await analyzeOutfitReal({ uri, base64, mediaType: mediaType ?? 'image/jpeg' });
+    const mt = mediaType ?? 'image/jpeg';
+
+    // Real pipeline: upload → queue → poll worker. Falls back to the local
+    // demo analysis on any failure (labeled, per PRD: no silent fake AI).
+    if (backendAvailable() && base64) {
+      setStatusText('uploading…');
+      const up = await uploadAndAnalyze({ uri, base64, mediaType: mt, category });
+      if (up.ok) {
+        setStatusText('in queue…');
+        setTimeout(() => setStatusText((t) => (t === 'in queue…' ? 'reading your style DNA…' : t)), 4000);
+        const polled = await pollAnalysis(up.outfitId);
+        if (polled.ok) {
+          setResult(polled.result);
+          setAnalyzing(false);
+          return;
+        }
+        console.warn('outft: analysis polling failed, falling back to demo:', polled.error);
+      } else {
+        console.warn('outft: upload failed, falling back to demo:', up.error);
+      }
+    }
+
+    setStatusText('Reading your style DNA…');
+    setIsDemo(true);
+    const res = await analyzeOutfitReal({ uri, base64, mediaType: mt });
     setResult(res);
     setAnalyzing(false);
   };
@@ -138,9 +167,10 @@ export default function CameraScreen() {
             <Text style={s.metaRow}>{catLabel} · 22 June 2026</Text>
             <Text style={s.metaRow}>14:32 · afternoon window</Text>
             {analyzing ? (
-              <Text style={s.reading}>Reading your style DNA…</Text>
+              <Text style={s.reading}>{statusText}</Text>
             ) : result ? (
               <View>
+                {isDemo ? <Text style={s.demoLabel}>demo analysis</Text> : null}
                 <Text style={s.insight}>{result.insight}</Text>
                 {result.aesthetics.map((a) => (
                   <View key={a.label} style={s.aRow}>
@@ -236,6 +266,7 @@ const s = StyleSheet.create({
   recordNo: { fontFamily: fonts.sans, fontSize: 9, color: colors.faint, textAlign: 'center', marginTop: 3 },
   dashed: { borderTopWidth: 1, borderStyle: 'dashed', borderColor: '#D8D0C4', marginVertical: 10 },
   metaRow: { fontFamily: fonts.sans, fontSize: 10, color: colors.muted, marginBottom: 2 },
+  demoLabel: { fontFamily: fonts.sans, fontSize: 8, color: colors.sand, letterSpacing: 1, marginTop: 8 },
   reading: { fontFamily: fonts.serifItalic, fontSize: 14, color: colors.taupe, marginTop: 10 },
   insight: { fontFamily: fonts.serifItalic, fontSize: 14, color: colors.ink, marginTop: 10, marginBottom: 8 },
   aRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5 },

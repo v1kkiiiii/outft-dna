@@ -1,14 +1,50 @@
 import React, { useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
 import { affiliateUrl, BRAND_PICKS, ECHO_POSTS, POSTS } from '../data';
 import { useApp } from '../state';
+import { backendAvailable } from '../lib/supabase';
+import { deleteOutfit } from '../lib/historyApi';
 import { Avatar, CommentIcon, Header, Photo, Rule, SectionLabel, Tag } from '../ui';
 import { SaveSheet } from '../ui-save-sheet';
 
 export default function PostDetailScreen() {
-  const { params, goBack, navigate, showToast, isPostSaved, unsavePost } = useApp();
+  const { params, goBack, navigate, showToast, isPostSaved, unsavePost, captures, update } = useApp();
   const post = params.post ?? POSTS[0];
+  const isMine = post.handle === '@you';
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete this trace?',
+      'The photo and its analysis will be removed.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            const serverId = (post as { serverId?: string }).serverId;
+            const local = captures.find(
+              (c) => c.id === serverId || (!!post.photoUri && c.photoUri === post.photoUri),
+            );
+            const targetId = serverId ?? local?.id;
+            if (targetId && UUID_RE.test(targetId) && backendAvailable()) {
+              deleteOutfit(targetId).catch(() => {}); // best-effort
+            }
+            update({
+              captures: captures.filter(
+                (c) => c.id !== targetId && (!post.photoUri || c.photoUri !== post.photoUri),
+              ),
+            });
+            goBack();
+            showToast('trace deleted');
+          },
+        },
+      ],
+    );
+  };
   const [liked, setLiked] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const savedIn = isPostSaved(post);
@@ -105,6 +141,12 @@ export default function PostDetailScreen() {
               </Pressable>
             ))}
           </View>
+
+          {isMine && (
+            <Pressable onPress={confirmDelete} hitSlop={10} style={{ marginTop: 24 }}>
+              <Text style={s.deleteText}>delete trace</Text>
+            </Pressable>
+          )}
         </View>
       </ScrollView>
       <SaveSheet post={post} visible={sheetOpen} onClose={() => setSheetOpen(false)} />
@@ -134,4 +176,5 @@ const s = StyleSheet.create({
   shopBtnText: { fontFamily: fonts.sansMedium, fontSize: 11, letterSpacing: 2, color: colors.paper },
   affNote: { fontFamily: fonts.sans, fontSize: 9, color: colors.sand, textAlign: 'center', marginTop: 6 },
   pickLabel: { fontFamily: fonts.sans, fontSize: 8, letterSpacing: 0.5, color: colors.sand, marginTop: 5 },
+  deleteText: { fontFamily: fonts.sans, fontSize: 10, color: colors.likeRed, textAlign: 'center', letterSpacing: 1 },
 });

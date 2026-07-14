@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts } from '../theme';
-import { useApp } from '../state';
-import { BADGES, CATEGORIES, POSTS, SIGNATURE_COLORS } from '../data';
+import { LatestOutfit, useApp } from '../state';
+import { fetchMyOutfits } from '../lib/historyApi';
+import { BADGES, CATEGORIES, POSTS, SIGNATURE_COLORS, Post } from '../data';
 import { Photo, PillButton, Polaroid, SectionLabel, Tag } from '../ui';
 
 const TABS = ['Trace', 'Saves', 'Backlog', 'Badges'] as const;
@@ -20,6 +21,29 @@ export default function ProfileScreen() {
   const { navigate, showToast, update, latestOutfit, outfitCount, streak, profileName, avatarUri, coverUri, collections, captures, savedPosts } = useApp();
   const [tab, setTab] = useState<TabKey>('Trace');
   const [grouping, setGrouping] = useState<(typeof GROUPINGS)[number]>('occasions');
+  const [serverItems, setServerItems] = useState<LatestOutfit[]>([]);
+
+  // Quiet background sync: if the backend is reachable and returns outfits,
+  // surface them; otherwise nothing changes visually.
+  useEffect(() => {
+    let cancelled = false;
+    fetchMyOutfits().then((r) => {
+      if (!cancelled && r.ok && r.items.length > 0) setServerItems(r.items);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const localIds = new Set(captures.map((c) => c.id));
+  const syncedItems = serverItems.filter((i) => !localIds.has(i.id));
+
+  const captureToPost = (c: LatestOutfit): Post => ({
+    idx: Number(c.id) || 0, handle: '@you', ava: 'EV', color: '#CDB89B',
+    date: new Date(c.capturedAt).toLocaleDateString(),
+    caption: c.caption ?? c.result.insight,
+    tags: c.result.tags.slice(0, 2), likes: 0, dna: c.result.insight,
+    tone: '#DFDFDF', photoUri: c.photoUri,
+    serverId: c.id,
+  } as Post & { serverId: string });
 
   const pickAvatar = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -185,14 +209,7 @@ export default function ProfileScreen() {
               <Pressable
                 key={c.id}
                 style={st.gridTile}
-                onPress={() => navigate('postDetail', {
-                  post: {
-                    idx: Number(c.id) || 0, handle: '@you', ava: 'EV', color: '#CDB89B',
-                    date: new Date(c.capturedAt).toLocaleDateString(), caption: c.caption ?? c.result.insight,
-                    tags: c.result.tags.slice(0, 2), likes: 0, dna: c.result.insight,
-                    tone: '#DFDFDF', photoUri: c.photoUri,
-                  },
-                })}
+                onPress={() => navigate('postDetail', { post: captureToPost(c) })}
               >
                 <Photo uri={c.photoUri} style={{ width: '100%', height: '100%' }} />
               </Pressable>
@@ -239,6 +256,25 @@ export default function ProfileScreen() {
             Your wear archive. Every outfit becomes evidence of a style in motion.
           </Text>
 
+          {syncedItems.length > 0 && (
+            <View style={{ marginTop: 22 }}>
+              <SectionLabel>SYNCED</SectionLabel>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 12 }}>
+                {syncedItems.map((c, j) => (
+                  <Polaroid
+                    key={c.id}
+                    width={96}
+                    uri={c.photoUri || undefined}
+                    tiltIndex={j}
+                    meta={new Date(c.capturedAt).toLocaleDateString()}
+                    number={c.caption ?? c.result.tags[0] ?? c.category}
+                    onPress={() => navigate('postDetail', { post: captureToPost(c) })}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
+
           {captures.length > 0 && (
             <View style={{ marginTop: 22 }}>
               <SectionLabel>Your captures</SectionLabel>
@@ -251,15 +287,7 @@ export default function ProfileScreen() {
                     tiltIndex={j}
                     meta={new Date(c.capturedAt).toLocaleDateString()}
                     number={c.caption ?? c.result.tags[0]}
-                    onPress={() => navigate('postDetail', {
-                      post: {
-                        idx: Number(c.id) || 0, handle: '@you', ava: 'EV', color: '#CDB89B',
-                        date: new Date(c.capturedAt).toLocaleDateString(),
-                        caption: c.caption ?? c.result.insight,
-                        tags: c.result.tags.slice(0, 2), likes: 0, dna: c.result.insight,
-                        tone: '#DFDFDF', photoUri: c.photoUri,
-                      },
-                    })}
+                    onPress={() => navigate('postDetail', { post: captureToPost(c) })}
                   />
                 ))}
               </View>

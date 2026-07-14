@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { colors, fonts } from '../theme';
 import { useApp } from '../state';
+import { backendAvailable } from '../lib/supabase';
+import { signInWithEmail, signUpWithEmail, upsertProfile } from '../lib/authApi';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const CREAM = colors.creamDark; // #F0EBE3
@@ -22,8 +24,11 @@ export default function SignInScreen() {
   const [step, setStep] = useState<1 | 2>(1);
   const [path, setPath] = useState<Path>('email');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [emailTouched, setEmailTouched] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const fade = useRef(new Animated.Value(1)).current;
   const slide = useRef(new Animated.Value(0)).current;
@@ -54,26 +59,100 @@ export default function SignInScreen() {
   };
 
   const startGuest = () => {
-    update({ signedIn: true, guestMode: true, email: '' });
+    update({ signedIn: true, guestMode: true, email: '', userId: null, authMode: 'guest' });
     navigate('home');
     showToast('guest mode');
   };
 
   const emailValid = EMAIL_RE.test(email.trim());
   const showEmailError = path === 'email' && emailTouched && email.trim().length > 0 && !emailValid;
-  const canContinue = name.trim().length > 0 && (path === 'apple' || emailValid);
+  const canContinue =
+    !busy &&
+    name.trim().length > 0 &&
+    (path === 'apple' || (emailValid && password.length >= 6));
 
-  const finish = () => {
-    if (!canContinue) return;
+  const welcome = (displayName: string) => {
+    const first = displayName.split(/\s+/)[0].toLowerCase();
+    showToast('welcome, ' + first);
+  };
+
+  // Local-only fallback so demos keep working without a backend.
+  const finishLocal = (offline: boolean) => {
     update({
       signedIn: true,
       guestMode: false,
       email: path === 'email' ? email.trim() : '',
       profileName: name.trim(),
+      userId: null,
+      authMode: 'demo',
     });
     navigate('home');
-    const first = name.trim().split(/\s+/)[0].toLowerCase();
-    showToast('welcome, ' + first);
+    if (offline) showToast('offline demo mode');
+    else welcome(name.trim());
+  };
+
+  const finish = async () => {
+    if (!canContinue) return;
+    setAuthError(null);
+
+    if (path === 'apple' || !backendAvailable()) {
+      finishLocal(path === 'email');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const cleanEmail = email.trim();
+      const cleanName = name.trim();
+      const displayName = cleanName || cleanEmail.split('@')[0];
+      const username = (cleanName || cleanEmail.split('@')[0])
+        .toLowerCase()
+        .replace(/[^a-z0-9_]+/g, '_')
+        .replace(/^_+|_+$/g, '') || cleanEmail.split('@')[0].toLowerCase();
+
+      let res = await signInWithEmail(cleanEmail, password);
+      if (!res.ok) {
+        if (res.error === 'BACKEND_UNAVAILABLE' || /network|fetch/i.test(res.error ?? '')) {
+          finishLocal(true);
+          return;
+        }
+        // Invalid credentials: either wrong password or no account yet — try sign-up.
+        const signup = await signUpWithEmail(cleanEmail, password);
+        if (signup.ok) {
+          const prof = await upsertProfile(username, displayName);
+          if (!prof.ok && prof.error === 'USERNAME_TAKEN') {
+            setAuthError('that username is taken — try a different name');
+            return;
+          }
+          res = signup;
+        } else if (/already|registered|exists/i.test(signup.error ?? '')) {
+          setAuthError('wrong password for this email');
+          return;
+        } else if (/network|fetch/i.test(signup.error ?? '') || signup.error === 'BACKEND_UNAVAILABLE') {
+          finishLocal(true);
+          return;
+        } else {
+          setAuthError(signup.error?.toLowerCase() ?? 'sign in failed');
+          return;
+        }
+      }
+
+      update({
+        signedIn: true,
+        guestMode: false,
+        email: cleanEmail,
+        profileName: displayName,
+        userId: res.userId ?? null,
+        authMode: 'supabase',
+      });
+      navigate('home');
+      welcome(displayName);
+    } catch {
+      // Never crash the sign-in screen — degrade to local demo mode.
+      finishLocal(true);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -135,6 +214,21 @@ export default function SignInScreen() {
               </View>
             )}
 
+            {path === 'email' && (
+              <View style={s.field}>
+                <TextInput
+                  style={s.input}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="password (6+ characters)"
+                  placeholderTextColor="rgba(240,235,227,0.35)"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            )}
+
             <View style={s.field}>
               <TextInput
                 style={s.input}
@@ -146,12 +240,14 @@ export default function SignInScreen() {
               />
             </View>
 
+            {authError && <Text style={s.error}>{authError}</Text>}
+
             <Pressable
               style={[s.pill, s.pillFilled, s.continueBtn, !canContinue && { opacity: 0.35 }]}
               onPress={finish}
               disabled={!canContinue}
             >
-              <Text style={s.pillFilledText}>Continue</Text>
+              <Text style={s.pillFilledText}>{busy ? 'One moment…' : 'Continue'}</Text>
             </Pressable>
           </View>
         )}

@@ -34,7 +34,8 @@
         {
           "cameraPermission": "OUTFT uses the camera so you can capture your outfit."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

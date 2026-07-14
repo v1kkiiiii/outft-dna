@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AnalysisResult, Post } from './data';
+import { getSession, signOutSupabase } from './lib/authApi';
+
+export type AuthMode = 'supabase' | 'guest' | 'demo';
 
 export type ScreenKey =
   | 'signin' | 'home' | 'camera' | 'twins' | 'profile' | 'dna' | 'wrapped'
@@ -22,6 +25,8 @@ export interface SentMessage { person: string; text: string; time: string }
 interface PersistedState {
   signedIn: boolean;
   guestMode: boolean;
+  userId: string | null;
+  authMode: AuthMode;
   email: string;
   profileName: string;
   avatarUri: string | null;
@@ -40,6 +45,8 @@ interface PersistedState {
 const DEFAULT_STATE: PersistedState = {
   signedIn: false,
   guestMode: false,
+  userId: null,
+  authMode: 'demo',
   email: '',
   profileName: 'Elena Voss',
   avatarUri: null,
@@ -77,6 +84,7 @@ interface AppContextValue extends PersistedState {
   isPostSaved: (post: Post) => string | null;
   toast: string | null;
   showToast: (msg: string) => void;
+  signOut: () => void;
   hydrated: boolean;
 }
 
@@ -92,12 +100,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
+      let loaded = DEFAULT_STATE;
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) {
-          const loaded = { ...DEFAULT_STATE, ...JSON.parse(raw) } as PersistedState;
+          loaded = { ...DEFAULT_STATE, ...JSON.parse(raw) } as PersistedState;
           setState(loaded);
           if (loaded.signedIn || loaded.guestMode) setScreen('home');
+        }
+      } catch {}
+      // Restore a persisted Supabase session, if any (spec: session survives restarts).
+      try {
+        const session = await getSession();
+        if (session?.user?.id) {
+          const next: PersistedState = {
+            ...loaded,
+            signedIn: true,
+            guestMode: false,
+            userId: session.user.id,
+            authMode: 'supabase',
+          };
+          setState(next);
+          AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+          setScreen('home');
         }
       } catch {}
       setHydrated(true);
@@ -157,6 +182,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     showToast: (msg) => {
       setToast(msg);
       setTimeout(() => setToast(null), 1800);
+    },
+    signOut: () => {
+      signOutSupabase().catch(() => {});
+      // Clear identity, keep local captures cache and other content intact.
+      persist({
+        ...state,
+        signedIn: false,
+        guestMode: false,
+        userId: null,
+        authMode: 'demo',
+        email: '',
+      });
+      setHistory([]);
+      setScreen('signin');
+      setParams({});
     },
   }), [state, screen, params, history, toast, hydrated]);
 
