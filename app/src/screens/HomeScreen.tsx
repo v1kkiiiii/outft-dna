@@ -130,22 +130,6 @@ export default function HomeScreen() {
         </View>
       </Pressable>
 
-      {/* Recent echoes */}
-      <View style={s.sectionRow}>
-        <Text style={s.sectionTitle}>Recent echoes</Text>
-        <Text style={s.sectionAside}>FITS THAT MATCH YOURS</Text>
-      </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-        {ECHO_POSTS.map((p) => (
-          <Pressable key={p.idx} onPress={() => navigate('postDetail', { post: p })}>
-            <Photo tone={p.tone} style={s.echoPhoto} />
-            <View style={s.echoBadge}>
-              <Text style={s.echoBadgeText}>{p.handle}</Text>
-            </View>
-          </Pressable>
-        ))}
-      </ScrollView>
-
       {/* Insight card */}
       <View style={s.insightCard}>
         <Text style={s.insightText}>{insight}</Text>
@@ -158,16 +142,6 @@ export default function HomeScreen() {
         <Text style={s.sponsorBrand}>Featured brand</Text>
         <Text style={s.sponsorCopy}>Shop the pieces closest to your trace.</Text>
       </View>
-
-      {/* Wear this again */}
-      <Pressable style={s.wearCard} onPress={() => navigate('postDetail', { post: POSTS[8] })}>
-        <Photo tone={POSTS[8].tone} style={{ width: 56, height: 70, borderRadius: 6 }} />
-        <View style={{ flex: 1 }}>
-          <Text style={s.wearKicker}>WEAR THIS AGAIN · 72°F</Text>
-          <Text style={s.wearTitle}>linen jacket day</Text>
-          <Text style={s.wearCopy}>you traced this on 9 June — same light, same mood.</Text>
-        </View>
-      </Pressable>
 
       {/* Friends' traces */}
       <View style={s.sectionRow}>

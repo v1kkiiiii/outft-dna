@@ -16,7 +16,7 @@ const GROUPINGS = ['occasions', 'months', 'years'] as const;
 const LIGHT_DOT = (c: string) => ['#FFFFFF', '#F0EBE3', '#E8D8C4'].includes(c.toUpperCase()) || ['#FFFFFF', '#F0EBE3', '#E8D8C4'].includes(c);
 
 export default function ProfileScreen() {
-  const { navigate, showToast, latestOutfit, outfitCount, streak, profileName, collections } = useApp();
+  const { navigate, showToast, latestOutfit, outfitCount, streak, profileName, collections, captures, savedPosts } = useApp();
   const [tab, setTab] = useState<TabKey>('Trace');
   const [grouping, setGrouping] = useState<(typeof GROUPINGS)[number]>('occasions');
 
@@ -119,27 +119,54 @@ export default function ProfileScreen() {
       )}
 
       {tab === 'Saves' && (
-        <View style={{ paddingHorizontal: 22, paddingTop: 28, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-          {BOARD_NAMES.map((name, i) => (
-            <Pressable
-              key={name}
-              onPress={() => navigate('collection', { collectionName: name })}
-              style={{ width: '48%', alignItems: 'center', marginBottom: 32 }}
-            >
-              <Polaroid
-                width={150}
-                tone={['#C4B098', '#B4A898', '#D8CFC4', '#E8D8C4'][i % 4]}
-                tiltIndex={i}
-                meta={BOARD_META[i]}
-                number={name}
+        <View style={{ paddingTop: 2 }}>
+          <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 22, paddingVertical: 12 }}>
+            {BOARD_NAMES.map((name) => (
+              <Pressable
+                key={name}
                 onPress={() => navigate('collection', { collectionName: name })}
-              />
-              <Text style={{ fontFamily: fonts.serifItalic, fontSize: 14, color: colors.ink, marginTop: 12 }}>{name}</Text>
-              <Text style={{ fontFamily: fonts.sans, fontSize: 10, color: colors.faint, marginTop: 2 }}>
-                {collections[name] ?? 0} fits
-              </Text>
-            </Pressable>
-          ))}
+                style={st.boardChip}
+              >
+                <Text style={st.boardChipText}>{name}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+            {captures.map((c) => (
+              <Pressable
+                key={c.id}
+                style={st.gridTile}
+                onPress={() => navigate('postDetail', {
+                  post: {
+                    idx: Number(c.id) || 0, handle: '@you', ava: 'EV', color: '#CDB89B',
+                    date: new Date(c.capturedAt).toLocaleDateString(), caption: c.caption ?? c.result.insight,
+                    tags: c.result.tags.slice(0, 2), likes: 0, dna: c.result.insight,
+                    tone: '#DFDFDF', photoUri: c.photoUri,
+                  },
+                })}
+              >
+                <Photo uri={c.photoUri} style={{ width: '100%', height: '100%' }} />
+              </Pressable>
+            ))}
+            {Object.values(savedPosts).flat().map((p) => (
+              <Pressable
+                key={`s-${p.idx}`}
+                style={st.gridTile}
+                onPress={() => navigate('postDetail', { post: p })}
+              >
+                <Photo uri={p.photoUri} tone={p.tone} style={{ width: '100%', height: '100%' }} />
+              </Pressable>
+            ))}
+            {POSTS.slice(0, 9).map((p) => (
+              <Pressable
+                key={`d-${p.idx}`}
+                style={st.gridTile}
+                onPress={() => navigate('postDetail', { post: p })}
+              >
+                <Photo tone={p.tone} style={{ width: '100%', height: '100%' }} />
+              </Pressable>
+            ))}
+          </View>
         </View>
       )}
 
@@ -283,6 +310,12 @@ const st = StyleSheet.create({
     paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line,
   },
   miniRowText: { fontFamily: fonts.serif, fontSize: 16, color: colors.ink },
+  boardChip: {
+    borderWidth: 1, borderColor: colors.tagBorder, borderRadius: 999,
+    paddingVertical: 5, paddingHorizontal: 12,
+  },
+  boardChipText: { fontFamily: fonts.sans, fontSize: 10, color: colors.taupe },
+  gridTile: { width: '33.05%', aspectRatio: 1, margin: '0.14%', backgroundColor: colors.cream },
   groupPill: {
     borderWidth: 1, borderColor: colors.tagBorder, borderRadius: 999,
     paddingVertical: 6, paddingHorizontal: 14,

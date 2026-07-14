@@ -28,6 +28,12 @@
         {
           "photosPermission": "OUTFT needs access to your photos so you can select an outfit to analyze."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "OUTFT uses the camera so you can capture your outfit."
+        }
       ]
     ]
   }

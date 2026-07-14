@@ -1,11 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts } from '../theme';
 import { AnalysisResult, CATEGORIES } from '../data';
 import { analyzeOutfitReal } from '../analyze';
 import { useApp, LatestOutfit } from '../state';
-import { Header, Photo, PillButton, Tag } from '../ui';
+import { Photo, PillButton, Tag } from '../ui';
 
 const BAR_WIDTHS = [1, 3, 2, 1, 2, 3, 1, 1, 2, 3, 2, 1, 3, 1, 2, 2, 3, 1, 2, 1, 3, 2, 1, 3, 1, 2, 3, 1, 2, 2];
 
@@ -18,42 +19,32 @@ export default function CameraScreen() {
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [brand, setBrand] = useState('');
   const [caption, setCaption] = useState('');
-  const autoOpened = useRef(false);
+  const [facing, setFacing] = useState<'back' | 'front'>('back');
+  const [permission, requestPermission] = useCameraPermissions();
+  const cameraRef = useRef<CameraView>(null);
 
-  const handlePicked = async (asset: ImagePicker.ImagePickerAsset) => {
-    setPhoto(asset.uri);
+  const handlePicked = async (uri: string, base64?: string | null, mediaType?: string) => {
+    setPhoto(uri);
     setResult(null);
     setAnalyzing(true);
     setOverlayOpen(true);
-    const res = await analyzeOutfitReal({
-      uri: asset.uri,
-      base64: asset.base64,
-      mediaType: asset.mimeType ?? 'image/jpeg',
-    });
+    const res = await analyzeOutfitReal({ uri, base64, mediaType: mediaType ?? 'image/jpeg' });
     setResult(res);
     setAnalyzing(false);
   };
 
-  const capture = async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) { showToast('camera permission needed'); return; }
-    const r = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6, base64: true });
-    if (!r.canceled && r.assets[0]) handlePicked(r.assets[0]);
+  const snap = async () => {
+    if (!cameraRef.current) return;
+    const pic = await cameraRef.current.takePictureAsync({ quality: 0.6, base64: true });
+    if (pic) handlePicked(pic.uri, pic.base64);
   };
 
   const upload = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { showToast('camera permission needed'); return; }
+    if (!perm.granted) { showToast('photo permission needed'); return; }
     const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6, base64: true });
-    if (!r.canceled && r.assets[0]) handlePicked(r.assets[0]);
+    if (!r.canceled && r.assets[0]) handlePicked(r.assets[0].uri, r.assets[0].base64, r.assets[0].mimeType);
   };
-
-  useEffect(() => {
-    if (autoOpened.current) return;
-    autoOpened.current = true;
-    capture();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const closeOverlay = () => { setOverlayOpen(false); };
   const retake = () => { setPhoto(null); setResult(null); setOverlayOpen(false); setBrand(''); setCaption(''); };
@@ -80,56 +71,59 @@ export default function CameraScreen() {
 
   const catLabel = CATEGORIES.find((c) => c.key === category)?.label ?? 'Daily';
 
+  const camGranted = permission?.granted;
+
   return (
-    <View style={{ flex: 1, backgroundColor: colors.paper }}>
-      <Header onClose={() => navigate('home')} />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 40 }}>
-        <Text style={s.h1}>Capture your trace</Text>
+    <View style={{ flex: 1, backgroundColor: '#111110' }}>
+      <View style={s.topBar}>
+        <Pressable onPress={() => navigate('home')} hitSlop={12}>
+          <Text style={s.topGlyph}>×</Text>
+        </Pressable>
+        <Text style={s.topTitle}>outft.</Text>
+        <View style={{ width: 20 }} />
+      </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipRow} contentContainerStyle={{ gap: 6 }}>
-          {CATEGORIES.map((c) => {
-            const sel = c.key === category;
-            return (
-              <Pressable
-                key={c.key}
-                onPress={() => setCategory(c.key)}
-                style={[s.catChip, sel && { backgroundColor: colors.ink, borderColor: colors.ink }]}
-              >
-                <Text style={[s.catChipLabel, sel && { color: colors.paper }]}>{c.label}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        <View style={s.viewfinder}>
-          {photo ? (
-            <Photo uri={photo} style={StyleSheet.absoluteFill as any} />
-          ) : (
-            <Text style={s.vfHint}>TAP TO CAPTURE YOUR TODAY</Text>
-          )}
-          <View style={[s.corner, { top: 10, left: 10, borderTopWidth: 2, borderLeftWidth: 2 }]} />
-          <View style={[s.corner, { top: 10, right: 10, borderTopWidth: 2, borderRightWidth: 2 }]} />
-          <View style={[s.corner, { bottom: 10, left: 10, borderBottomWidth: 2, borderLeftWidth: 2 }]} />
-          <View style={[s.corner, { bottom: 10, right: 10, borderBottomWidth: 2, borderRightWidth: 2 }]} />
-        </View>
-
-        <View style={s.shutterRow}>
-          <Pressable style={s.sideBtn} onPress={() => showToast('camera flipped')}>
-            <Text style={s.sideGlyph}>⟳</Text>
+      <View style={s.viewfinder}>
+        {camGranted ? (
+          <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} />
+        ) : (
+          <Pressable style={s.permBox} onPress={requestPermission}>
+            <Text style={s.permText}>TAP TO ENABLE CAMERA</Text>
           </Pressable>
-          <View style={s.halo}>
-            <Pressable style={s.shutter} onPress={capture} />
-          </View>
-          <Pressable style={s.sideBtn} onPress={upload}>
-            <Text style={s.sideGlyph}>⬆</Text>
-          </Pressable>
-        </View>
+        )}
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipRow} contentContainerStyle={{ gap: 6, paddingHorizontal: 22 }}>
+        {CATEGORIES.map((c) => {
+          const sel = c.key === category;
+          return (
+            <Pressable
+              key={c.key}
+              onPress={() => setCategory(c.key)}
+              style={[s.catChip, sel && { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: '#FFFFFF' }]}
+            >
+              <Text style={[s.catChipLabel, sel && { color: '#FFFFFF' }]}>{c.label}</Text>
+            </Pressable>
+          );
+        })}
       </ScrollView>
+
+      <View style={s.shutterRow}>
+        <Pressable style={s.sideBtn} onPress={upload}>
+          <Text style={s.sideGlyph}>▤</Text>
+        </Pressable>
+        <View style={s.halo}>
+          <Pressable style={s.shutter} onPress={snap} disabled={!camGranted} />
+        </View>
+        <Pressable style={s.sideBtn} onPress={() => setFacing(facing === 'back' ? 'front' : 'back')}>
+          <Text style={s.sideGlyph}>⟲</Text>
+        </Pressable>
+      </View>
 
       {overlayOpen && photo ? (
         <View style={s.overlay}>
           <Pressable style={s.overlayClose} onPress={closeOverlay} hitSlop={12}>
-            <Text style={{ fontSize: 19, color: colors.ink }}>✕</Text>
+            <Text style={{ fontSize: 19, color: colors.ink }}>×</Text>
           </Pressable>
           <ScrollView
             style={{ maxHeight: Dimensions.get('window').height * 0.78, alignSelf: 'stretch' }}
@@ -195,34 +189,39 @@ export default function CameraScreen() {
 }
 
 const s = StyleSheet.create({
-  h1: { fontFamily: fonts.serif, fontSize: 30, color: colors.ink, marginTop: 4, marginBottom: 12 },
-  chipRow: { marginBottom: 14, maxHeight: 34 },
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 22, paddingTop: 12, paddingBottom: 10,
+  },
+  topGlyph: { fontSize: 24, color: '#FFFFFF' },
+  topTitle: { fontFamily: fonts.serif, fontSize: 18, color: '#FFFFFF' },
+  chipRow: { marginTop: 14, maxHeight: 34, flexGrow: 0 },
   catChip: {
-    borderWidth: 1, borderColor: colors.tagBorder, borderRadius: 999,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)', borderRadius: 999,
     paddingVertical: 7, paddingHorizontal: 14,
   },
-  catChipLabel: { fontFamily: fonts.sansMedium, fontSize: 11, color: colors.ink },
+  catChipLabel: { fontFamily: fonts.sansMedium, fontSize: 11, color: 'rgba(255,255,255,0.65)' },
   viewfinder: {
-    width: '92%', aspectRatio: 3 / 4, alignSelf: 'center', borderRadius: 4,
-    backgroundColor: colors.cream, overflow: 'hidden',
+    flex: 1, marginHorizontal: 10, borderRadius: 18,
+    backgroundColor: '#26251F', overflow: 'hidden',
     alignItems: 'center', justifyContent: 'center',
   },
-  corner: { position: 'absolute', width: 22, height: 22, borderColor: '#FFFFFF' },
-  vfHint: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 2, color: colors.sand },
+  permBox: { padding: 30, alignItems: 'center' },
+  permText: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 2, color: 'rgba(255,255,255,0.7)' },
   shutterRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 28, marginTop: 24,
+    gap: 34, paddingVertical: 18,
   },
   sideBtn: {
-    width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.tagBorder,
+    width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
     alignItems: 'center', justifyContent: 'center',
   },
-  sideGlyph: { fontSize: 18, color: colors.ink },
+  sideGlyph: { fontSize: 18, color: '#FFFFFF' },
   halo: {
-    width: 72, height: 72, borderRadius: 36, borderWidth: 1, borderColor: colors.ink,
+    width: 76, height: 76, borderRadius: 38, borderWidth: 3, borderColor: '#FFFFFF',
     alignItems: 'center', justifyContent: 'center',
   },
-  shutter: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.ink },
+  shutter: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFFFFF' },
   overlay: {
     ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.96)',
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22,
