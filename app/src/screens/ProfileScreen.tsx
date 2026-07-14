@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts } from '../theme';
 import { useApp } from '../state';
 import { BADGES, CATEGORIES, POSTS, SIGNATURE_COLORS } from '../data';
-import { Photo, PillButton, SectionLabel, Tag } from '../ui';
+import { Photo, PillButton, Polaroid, SectionLabel, Tag } from '../ui';
 
 const TABS = ['Trace', 'Saves', 'Backlog', 'Badges'] as const;
 type TabKey = (typeof TABS)[number];
@@ -220,11 +220,15 @@ export default function ProfileScreen() {
           {captures.length > 0 && (
             <View style={{ marginTop: 22 }}>
               <SectionLabel>Your captures</SectionLabel>
-              <View style={st.photoGrid}>
-                {captures.map((c) => (
-                  <Pressable
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 12 }}>
+                {captures.map((c, j) => (
+                  <Polaroid
                     key={c.id}
-                    style={st.photoTile}
+                    width={96}
+                    uri={c.photoUri}
+                    tiltIndex={j}
+                    meta={new Date(c.capturedAt).toLocaleDateString()}
+                    number={c.caption ?? c.result.tags[0]}
                     onPress={() => navigate('postDetail', {
                       post: {
                         idx: Number(c.id) || 0, handle: '@you', ava: 'EV', color: '#CDB89B',
@@ -234,9 +238,7 @@ export default function ProfileScreen() {
                         tone: '#DFDFDF', photoUri: c.photoUri,
                       },
                     })}
-                  >
-                    <Photo uri={c.photoUri} style={{ width: '100%', height: '100%', borderRadius: 6 }} />
-                  </Pressable>
+                  />
                 ))}
               </View>
             </View>
@@ -245,13 +247,19 @@ export default function ProfileScreen() {
           {grouping === 'occasions' && CATEGORIES.slice(0, 4).map((cat, i) => (
             <View key={cat.key} style={{ marginTop: 22 }}>
               <SectionLabel>{cat.label}</SectionLabel>
-              <View style={st.photoGrid}>
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
                 {[0, 1, 2, 3].map((j) => {
                   const post = POSTS[i * 4 + j];
                   return (
-                    <Pressable key={j} style={st.photoTile} onPress={() => navigate('postDetail', { post })}>
-                      <Photo tone={post.tone} style={{ width: '100%', height: '100%', borderRadius: 6 }} />
-                    </Pressable>
+                    <Polaroid
+                      key={j}
+                      width={82}
+                      tone={post.tone}
+                      tiltIndex={j}
+                      meta={`Jun ${22 - j} · ${cat.label}`}
+                      number={`No. 0${j + 1}`}
+                      onPress={() => navigate('postDetail', { post })}
+                    />
                   );
                 })}
               </View>
@@ -260,13 +268,13 @@ export default function ProfileScreen() {
 
           {grouping === 'months' && (
             <>
-              <PhotoGrid title="June" posts={POSTS.slice(0, 12)} onTap={(p) => navigate('postDetail', { post: p })} />
-              <PhotoGrid title="May" posts={POSTS.slice(24, 30)} onTap={(p) => navigate('postDetail', { post: p })} />
+              <PolaroidGrid title="June" posts={POSTS.slice(0, 12)} onTap={(p) => navigate('postDetail', { post: p })} />
+              <PolaroidGrid title="May" posts={POSTS.slice(24, 30)} onTap={(p) => navigate('postDetail', { post: p })} />
             </>
           )}
 
           {grouping === 'years' && (
-            <PhotoGrid title="2026" posts={POSTS.slice(0, 12)} onTap={(p) => navigate('postDetail', { post: p })} />
+            <PolaroidGrid title="2026" posts={POSTS.slice(0, 12)} onTap={(p) => navigate('postDetail', { post: p })} />
           )}
 
           <Pressable onPress={() => navigate('premium')} style={st.lockRow}>
@@ -315,17 +323,23 @@ function StatCell({ num, label, onPress }: { num: string; label: string; onPress
   );
 }
 
-function PhotoGrid({ title, posts, onTap }: {
+function PolaroidGrid({ title, posts, onTap }: {
   title: string; posts: typeof POSTS; onTap: (p: (typeof POSTS)[number]) => void;
 }) {
   return (
     <View style={{ marginTop: 22 }}>
       <SectionLabel>{title}</SectionLabel>
-      <View style={st.photoGrid}>
-        {posts.map((p) => (
-          <Pressable key={p.idx} style={st.photoTile} onPress={() => onTap(p)}>
-            <Photo tone={p.tone} style={{ width: '100%', height: '100%', borderRadius: 6 }} />
-          </Pressable>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 12 }}>
+        {posts.map((p, j) => (
+          <Polaroid
+            key={p.idx}
+            width={96}
+            tone={p.tone}
+            tiltIndex={j}
+            meta={p.date.split(' · ')[1] ?? p.date}
+            number={`No. ${String(j + 1).padStart(2, '0')}`}
+            onPress={() => onTap(p)}
+          />
         ))}
       </View>
     </View>
