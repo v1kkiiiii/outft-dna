@@ -20,6 +20,7 @@ export interface Post {
   dna: string;
   tone: string;
   photoUri?: string;
+  sponsor?: { brand: string; shopUrl: string };
 }
 
 export interface Person {
@@ -92,6 +93,13 @@ export const ECHO_POSTS: Post[] = [
   { idx: 101, handle: '@maren', ava: 'MA', color: avatarColors.maren, date: 'Jun 18 · 2026', caption: 'structure first', tags: ['minimal', 'work'], likes: 24, dna: '87% echo · shared structured silhouette.', tone: photoTones[3] },
   { idx: 102, handle: '@noor', ava: 'NO', color: avatarColors.noor, date: 'Jun 15 · 2026', caption: 'soft neutrals', tags: ['scandi', 'daily'], likes: 19, dna: '81% echo · your palettes overlap almost exactly.', tone: photoTones[0] },
   { idx: 103, handle: '@ari', ava: 'AR', color: avatarColors.ari, date: 'Jun 11 · 2026', caption: 'long lines', tags: ['old money', 'classic'], likes: 22, dna: '79% echo · matching layering logic.', tone: photoTones[4] },
+];
+
+// Brand-recommended outfits surfaced inside echo rows as sponsored picks.
+export const BRAND_PICKS: Post[] = [
+  { idx: 400, handle: 'Toteme', ava: 'TO', color: '#D8CFC4', date: 'sponsored', caption: 'The scarf coat, styled quiet.', tags: ['quiet luxury', 'tonal'], likes: 0, dna: 'Matched to your palette discipline and long-line silhouette.', tone: '#DCD3C6', sponsor: { brand: 'Toteme', shopUrl: 'https://toteme-studio.com' } },
+  { idx: 401, handle: 'COS', ava: 'CO', color: '#C4BAAA', date: 'sponsored', caption: 'Structured wool, softened edges.', tags: ['minimal', 'structured'], likes: 0, dna: 'Echoes your structured-neutral trace this month.', tone: '#CBC2B2', sponsor: { brand: 'COS', shopUrl: 'https://cos.com' } },
+  { idx: 402, handle: 'Arket', ava: 'AR', color: '#B8C4C0', date: 'sponsored', caption: 'Everyday layers in stone.', tags: ['scandi', 'daily'], likes: 0, dna: 'Picked for your scandi lean and soft-layer echoes.', tone: '#BFC9C4', sponsor: { brand: 'Arket', shopUrl: 'https://arket.com' } },
 ];
 
 export const FEED_POSTS: Post[] = [

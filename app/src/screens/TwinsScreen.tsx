@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, dnaColors, fonts } from '../theme';
-import { DNA_DEFAULT, ECHO_POSTS, PEOPLE } from '../data';
+import { BRAND_PICKS, DNA_DEFAULT, ECHO_POSTS, PEOPLE } from '../data';
 import { useApp } from '../state';
 import { Avatar, DnaWheel, Photo, Rule, SectionLabel } from '../ui';
 
@@ -103,15 +103,20 @@ export default function TwinsScreen() {
         <Text style={{ fontFamily: fonts.sans, fontSize: 10, color: colors.faint }}>palette · silhouette · mood</Text>
       </View>
 
-      {/* More echoes */}
+      {/* More echoes — brand picks interleaved as sponsored recommendations */}
       <SectionLabel style={{ marginTop: 32 }}>More echoes</SectionLabel>
       <View style={[s.grid, { marginTop: 12 }]}>
-        {ECHO_POSTS.map((p, i) => (
+        {[ECHO_POSTS[0], ECHO_POSTS[1], BRAND_PICKS[0], ECHO_POSTS[2], ECHO_POSTS[3], BRAND_PICKS[1]].map((p, i) => (
           <Pressable key={p.idx} style={{ width: '48%' }} onPress={() => navigate('postDetail', { post: p })}>
             <Photo tone={p.tone} style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 8 }} />
             <View style={s.pctBadge}>
-              <Text style={{ fontFamily: fonts.sansMedium, fontSize: 10, color: colors.ink }}>{ECHO_PCTS[i]}</Text>
+              <Text style={{ fontFamily: fonts.sansMedium, fontSize: 10, color: p.sponsor ? colors.taupe : colors.ink }}>
+                {p.sponsor ? p.handle : ECHO_PCTS[[0, 1, -1, 2, 3, -1][i]]}
+              </Text>
             </View>
+            {p.sponsor && (
+              <Text style={s.sponsorTag}>SPONSORED · MATCHES YOUR DNA</Text>
+            )}
           </Pressable>
         ))}
       </View>
@@ -175,6 +180,7 @@ const s = StyleSheet.create({
     position: 'absolute', top: 8, left: 8, backgroundColor: colors.paper,
     borderRadius: 999, paddingVertical: 3, paddingHorizontal: 8,
   },
+  sponsorTag: { fontFamily: fonts.sans, fontSize: 8, letterSpacing: 1, color: colors.sand, marginTop: 5 },
   searchPill: {
     backgroundColor: colors.cream, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 18,
     marginTop: 12, marginBottom: 6,

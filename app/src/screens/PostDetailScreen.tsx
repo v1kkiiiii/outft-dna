@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
-import { POSTS } from '../data';
+import { BRAND_PICKS, ECHO_POSTS, POSTS } from '../data';
 import { useApp } from '../state';
 import { Avatar, Header, Photo, Rule, SectionLabel, Tag } from '../ui';
 import { SaveSheet } from '../ui-save-sheet';
@@ -68,6 +68,32 @@ export default function PostDetailScreen() {
             <SectionLabel>OUTFIT DNA</SectionLabel>
             <Text style={s.dnaText}>{post.dna}</Text>
           </View>
+
+          {post.sponsor && (
+            <Pressable
+              style={s.shopBtn}
+              onPress={() => Linking.openURL(post.sponsor!.shopUrl)}
+            >
+              <Text style={s.shopBtnText}>SHOP AT {post.sponsor.brand.toUpperCase()} ↗</Text>
+            </Pressable>
+          )}
+
+          {/* Echoes + a sponsored brand pick matched to this look */}
+          <SectionLabel style={{ marginTop: 24 }}>ECHOES + PICKS FOR THIS LOOK</SectionLabel>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+            {[ECHO_POSTS[(post.idx + 1) % ECHO_POSTS.length], ECHO_POSTS[(post.idx + 2) % ECHO_POSTS.length], BRAND_PICKS[post.idx % BRAND_PICKS.length]].map((p) => (
+              <Pressable
+                key={p.idx}
+                style={{ flex: 1 }}
+                onPress={() => navigate('postDetail', { post: p })}
+              >
+                <Photo tone={p.tone} style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 8 }} />
+                <Text style={s.pickLabel} numberOfLines={1}>
+                  {p.sponsor ? `${p.handle} · SPONSORED` : p.handle}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
       </ScrollView>
       <SaveSheet post={post} visible={sheetOpen} onClose={() => setSheetOpen(false)} />
@@ -85,4 +111,10 @@ const s = StyleSheet.create({
   likes: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted, marginTop: 10 },
   dnaCard: { backgroundColor: '#F7F7F7', borderRadius: 12, padding: 15, marginTop: 16 },
   dnaText: { fontFamily: fonts.serifItalic, fontSize: 15, color: colors.ink, marginTop: 6 },
+  shopBtn: {
+    backgroundColor: colors.ink, borderRadius: 999, paddingVertical: 13,
+    alignItems: 'center', marginTop: 14,
+  },
+  shopBtnText: { fontFamily: fonts.sansMedium, fontSize: 11, letterSpacing: 2, color: colors.paper },
+  pickLabel: { fontFamily: fonts.sans, fontSize: 8, letterSpacing: 0.5, color: colors.sand, marginTop: 5 },
 });
