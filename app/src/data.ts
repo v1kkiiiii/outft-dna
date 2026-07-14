@@ -20,7 +20,7 @@ export interface Post {
   dna: string;
   tone: string;
   photoUri?: string;
-  sponsor?: { brand: string; shopUrl: string };
+  sponsor?: { brand: string; shopUrl: string; affiliateId: string };
 }
 
 export interface Person {
@@ -97,9 +97,9 @@ export const ECHO_POSTS: Post[] = [
 
 // Brand-recommended outfits surfaced inside echo rows as sponsored picks.
 export const BRAND_PICKS: Post[] = [
-  { idx: 400, handle: 'Toteme', ava: 'TO', color: '#D8CFC4', date: 'sponsored', caption: 'The scarf coat, styled quiet.', tags: ['quiet luxury', 'tonal'], likes: 0, dna: 'Matched to your palette discipline and long-line silhouette.', tone: '#DCD3C6', sponsor: { brand: 'Toteme', shopUrl: 'https://toteme-studio.com' } },
-  { idx: 401, handle: 'COS', ava: 'CO', color: '#C4BAAA', date: 'sponsored', caption: 'Structured wool, softened edges.', tags: ['minimal', 'structured'], likes: 0, dna: 'Echoes your structured-neutral trace this month.', tone: '#CBC2B2', sponsor: { brand: 'COS', shopUrl: 'https://cos.com' } },
-  { idx: 402, handle: 'Arket', ava: 'AR', color: '#B8C4C0', date: 'sponsored', caption: 'Everyday layers in stone.', tags: ['scandi', 'daily'], likes: 0, dna: 'Picked for your scandi lean and soft-layer echoes.', tone: '#BFC9C4', sponsor: { brand: 'Arket', shopUrl: 'https://arket.com' } },
+  { idx: 400, handle: 'Toteme', ava: 'TO', color: '#D8CFC4', date: 'sponsored', caption: 'The scarf coat, styled quiet.', tags: ['quiet luxury', 'tonal'], likes: 0, dna: 'Matched to your palette discipline and long-line silhouette.', tone: '#DCD3C6', sponsor: { brand: 'Toteme', shopUrl: 'https://toteme-studio.com', affiliateId: 'outft-toteme' } },
+  { idx: 401, handle: 'COS', ava: 'CO', color: '#C4BAAA', date: 'sponsored', caption: 'Structured wool, softened edges.', tags: ['minimal', 'structured'], likes: 0, dna: 'Echoes your structured-neutral trace this month.', tone: '#CBC2B2', sponsor: { brand: 'COS', shopUrl: 'https://cos.com', affiliateId: 'outft-cos' } },
+  { idx: 402, handle: 'Arket', ava: 'AR', color: '#B8C4C0', date: 'sponsored', caption: 'Everyday layers in stone.', tags: ['scandi', 'daily'], likes: 0, dna: 'Picked for your scandi lean and soft-layer echoes.', tone: '#BFC9C4', sponsor: { brand: 'Arket', shopUrl: 'https://arket.com', affiliateId: 'outft-arket' } },
 ];
 
 export const FEED_POSTS: Post[] = [
@@ -247,3 +247,11 @@ export const ACTIVITY_ITEMS = [
   { icon: 'badge', text: 'Gym Warrior badge unlocked', time: '2d', go: 'profile' },
   { icon: 'streak', text: '14-day streak! keep going', time: 'today', go: 'home' },
 ];
+
+// Builds the outbound affiliate link for a sponsored brand. In production this
+// wraps the retailer's own affiliate-network deep link (e.g. Rakuten, Awin,
+// ShareASale); here it appends OUTFT's tracking params so taps are attributable.
+export function affiliateUrl(sponsor: { shopUrl: string; affiliateId: string }): string {
+  const sep = sponsor.shopUrl.includes('?') ? '&' : '?';
+  return `${sponsor.shopUrl}${sep}utm_source=outft&utm_medium=echo&aff=${encodeURIComponent(sponsor.affiliateId)}`;
+}

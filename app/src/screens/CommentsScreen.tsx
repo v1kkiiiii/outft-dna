@@ -68,11 +68,14 @@ export default function CommentsScreen() {
           onChangeText={setText}
           placeholder="add a comment…"
           placeholderTextColor={colors.faint}
-          onSubmitEditing={send}
+          multiline
+          blurOnSubmit={false}
         />
-        <Pressable style={s.sendBtn} onPress={send}>
-          <Text style={{ fontSize: 14, color: colors.paper }}>➤</Text>
-        </Pressable>
+        {text.trim().length > 0 && (
+          <Pressable onPress={send} hitSlop={8}>
+            <Text style={s.postBtn}>Post</Text>
+          </Pressable>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -92,12 +95,11 @@ const s = StyleSheet.create({
     borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.paper,
   },
   input: {
-    flex: 1, backgroundColor: '#F7F7F7', borderRadius: 999,
-    paddingHorizontal: 14, paddingVertical: 8,
+    flex: 1, backgroundColor: '#F7F7F7', borderRadius: 18,
+    paddingHorizontal: 14, paddingVertical: 8, maxHeight: 100,
     fontFamily: fonts.serif, fontSize: 14, color: colors.ink,
   },
-  sendBtn: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: colors.ink,
-    alignItems: 'center', justifyContent: 'center',
+  postBtn: {
+    fontFamily: fonts.sansMedium, fontSize: 14, color: '#3897F0', paddingHorizontal: 4,
   },
 });

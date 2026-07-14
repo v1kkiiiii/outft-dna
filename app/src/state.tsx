@@ -25,6 +25,7 @@ interface PersistedState {
   email: string;
   profileName: string;
   avatarUri: string | null;
+  coverUri: string | null;
   streak: number;
   outfitCount: number; // captures made in-app, added to base 87
   latestOutfit: LatestOutfit | null;
@@ -42,6 +43,7 @@ const DEFAULT_STATE: PersistedState = {
   email: '',
   profileName: 'Elena Voss',
   avatarUri: null,
+  coverUri: null,
   streak: 14,
   outfitCount: 0,
   latestOutfit: null,

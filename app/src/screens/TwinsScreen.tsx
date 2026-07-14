@@ -5,13 +5,6 @@ import { BRAND_PICKS, DNA_DEFAULT, ECHO_POSTS, PEOPLE } from '../data';
 import { useApp } from '../state';
 import { Avatar, DnaWheel, Photo, Rule, SectionLabel } from '../ui';
 
-const ECHO_NOTES = [
-  { title: 'Palette', copy: 'The same family of tones, worn without coordination.' },
-  { title: 'Silhouette', copy: 'Two lines that fall the same way on different days.' },
-  { title: 'Layering', copy: 'The same logic of what sits over what.' },
-  { title: 'Mood', copy: 'A shared temperature — quiet, deliberate, unhurried.' },
-];
-
 const FRIENDS: { key: string; sub: string }[] = [
   { key: 'lenav', sub: '8 echoes · quiet luxury' },
   { key: 'ari', sub: '5 echoes · scandi' },
@@ -59,31 +52,11 @@ export default function TwinsScreen() {
       {/* Hero */}
       <View style={{ alignItems: 'center', marginTop: 32 }}>
         <Text style={{ fontFamily: fonts.serif, fontSize: 36, color: colors.ink, textAlign: 'center' }}>Your twins</Text>
-        <Text style={{ fontFamily: fonts.serifItalic, fontSize: 15, color: colors.muted, textAlign: 'center', marginTop: 8 }}>
-          People whose palettes, silhouettes, and moods echo your DNA.
-        </Text>
-      </View>
-
-      {/* Echo explainer */}
-      <View style={s.explainer}>
-        <Text style={{ fontFamily: fonts.serifItalic, fontSize: 14, color: colors.muted, textAlign: 'center' }}>
-          An echo is when someone else's fit matches yours — same palette, same silhouette, same mood, traced independently.
-        </Text>
-      </View>
-
-      {/* Echo-note cards */}
-      <View style={s.grid}>
-        {ECHO_NOTES.map((n) => (
-          <View key={n.title} style={s.noteCard}>
-            <Text style={{ fontFamily: fonts.sans, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: colors.taupe }}>{n.title}</Text>
-            <Text style={{ fontFamily: fonts.serifItalic, fontSize: 12, color: colors.muted, marginTop: 6 }}>{n.copy}</Text>
-          </View>
-        ))}
       </View>
 
       {/* Side-by-side match */}
-      <SectionLabel style={{ marginTop: 32 }}>YOUR LATEST FIT · THEIR CLOSEST MATCH</SectionLabel>
-      <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+      <SectionLabel style={{ marginTop: 20 }}>YOUR LATEST FIT · THEIR CLOSEST MATCH</SectionLabel>
+      <Pressable style={{ flexDirection: 'row', gap: 10, marginTop: 12 }} onPress={() => navigate('otherProfile', { personKey: 'lenav' })}>
         <View style={s.matchPhoto}>
           <Photo uri={latestOutfit?.photoUri} tone="#C4B098" style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 8 }} />
           <View style={s.captionBar}>
@@ -96,12 +69,17 @@ export default function TwinsScreen() {
             <Text style={s.captionText}>@lenav · Apr 14</Text>
           </View>
         </View>
-      </View>
+      </Pressable>
       <View style={{ alignItems: 'center', marginTop: 16 }}>
         <Text style={{ fontFamily: fonts.serif, fontSize: 22, color: colors.ink }}>94% echo</Text>
         <Rule style={{ width: 40, marginVertical: 8 }} />
         <Text style={{ fontFamily: fonts.sans, fontSize: 10, color: colors.faint }}>palette · silhouette · mood</Text>
       </View>
+
+      {/* Quiet explainer — placed after the match so it reads as a footnote */}
+      <Text style={s.explainerQuiet}>
+        An echo is when someone else's fit matches yours — same palette, same silhouette, same mood, traced independently.
+      </Text>
 
       {/* More echoes — brand picks interleaved as sponsored recommendations */}
       <SectionLabel style={{ marginTop: 32 }}>More echoes</SectionLabel>
@@ -166,7 +144,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.ink, borderRadius: 12, padding: 16, marginTop: 14,
     flexDirection: 'row', alignItems: 'center',
   },
-  explainer: { backgroundColor: colors.cream, borderRadius: 12, padding: 18, marginTop: 24 },
+  explainerQuiet: { fontFamily: fonts.sans, fontSize: 11, color: colors.faint, textAlign: 'center', marginTop: 18, lineHeight: 16 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginTop: 16 },
   noteCard: { width: '48%', borderWidth: 1, borderColor: colors.line, borderRadius: 12, padding: 12 },
   matchPhoto: { flex: 1, position: 'relative' },

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
-import { BRAND_PICKS, ECHO_POSTS, POSTS } from '../data';
+import { affiliateUrl, BRAND_PICKS, ECHO_POSTS, POSTS } from '../data';
 import { useApp } from '../state';
 import { Avatar, CommentIcon, Header, Photo, Rule, SectionLabel, Tag } from '../ui';
 import { SaveSheet } from '../ui-save-sheet';
@@ -78,12 +78,15 @@ export default function PostDetailScreen() {
           </View>
 
           {post.sponsor && (
-            <Pressable
-              style={s.shopBtn}
-              onPress={() => Linking.openURL(post.sponsor!.shopUrl)}
-            >
-              <Text style={s.shopBtnText}>SHOP AT {post.sponsor.brand.toUpperCase()} ↗</Text>
-            </Pressable>
+            <View>
+              <Pressable
+                style={s.shopBtn}
+                onPress={() => { showToast('opening ' + post.sponsor!.brand); Linking.openURL(affiliateUrl(post.sponsor!)); }}
+              >
+                <Text style={s.shopBtnText}>SHOP AT {post.sponsor.brand.toUpperCase()} ↗</Text>
+              </Pressable>
+              <Text style={s.affNote}>Affiliate link · OUTFT may earn a commission</Text>
+            </View>
           )}
 
           {/* Echoes + a sponsored brand pick matched to this look */}
@@ -129,5 +132,6 @@ const s = StyleSheet.create({
     alignItems: 'center', marginTop: 14,
   },
   shopBtnText: { fontFamily: fonts.sansMedium, fontSize: 11, letterSpacing: 2, color: colors.paper },
+  affNote: { fontFamily: fonts.sans, fontSize: 9, color: colors.sand, textAlign: 'center', marginTop: 6 },
   pickLabel: { fontFamily: fonts.sans, fontSize: 8, letterSpacing: 0.5, color: colors.sand, marginTop: 5 },
 });

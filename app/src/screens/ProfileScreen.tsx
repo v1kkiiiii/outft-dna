@@ -17,7 +17,7 @@ const GROUPINGS = ['occasions', 'months', 'years'] as const;
 const LIGHT_DOT = (c: string) => ['#FFFFFF', '#F0EBE3', '#E8D8C4'].includes(c.toUpperCase()) || ['#FFFFFF', '#F0EBE3', '#E8D8C4'].includes(c);
 
 export default function ProfileScreen() {
-  const { navigate, showToast, update, latestOutfit, outfitCount, streak, profileName, avatarUri, collections, captures, savedPosts } = useApp();
+  const { navigate, showToast, update, latestOutfit, outfitCount, streak, profileName, avatarUri, coverUri, collections, captures, savedPosts } = useApp();
   const [tab, setTab] = useState<TabKey>('Trace');
   const [grouping, setGrouping] = useState<(typeof GROUPINGS)[number]>('occasions');
 
@@ -33,6 +33,18 @@ export default function ProfileScreen() {
     }
   };
 
+  const pickCover = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { showToast('photo permission needed'); return; }
+    const r = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], quality: 0.7, allowsEditing: true, aspect: [3, 2],
+    });
+    if (!r.canceled && r.assets[0]) {
+      update({ coverUri: r.assets[0].uri });
+      showToast('cover updated');
+    }
+  };
+
   const sigTags = latestOutfit?.result.tags ?? ['Quiet luxury', 'Old money', 'Scandi'];
   const totalFits = 87 + outfitCount;
 
@@ -40,7 +52,12 @@ export default function ProfileScreen() {
     <ScrollView style={{ flex: 1, backgroundColor: colors.paper }} contentContainerStyle={{ paddingBottom: 48 }}>
       {/* Cover */}
       <View style={{ height: 240 }}>
-        <Photo uri={latestOutfit?.photoUri} tone="#C4B098" style={{ width: '100%', height: 240 }} />
+        <Pressable onPress={pickCover}>
+          <Photo uri={coverUri ?? latestOutfit?.photoUri} tone="#C4B098" style={{ width: '100%', height: 240 }} />
+          <View style={st.coverEditHint}>
+            <Text style={{ fontFamily: fonts.sans, fontSize: 9, letterSpacing: 1, color: colors.paper }}>EDIT COVER</Text>
+          </View>
+        </Pressable>
         <Pressable
           onPress={() => showToast('settings')}
           hitSlop={12}
@@ -376,6 +393,10 @@ const st = StyleSheet.create({
   premiumKicker: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 2, color: '#B4A898' },
   premiumTitle: { fontFamily: fonts.serif, fontSize: 20, color: colors.paper, marginTop: 2 },
   premiumCopy: { fontFamily: fonts.sans, fontSize: 11, color: '#CFC7BC', marginTop: 3 },
+  coverEditHint: {
+    position: 'absolute', top: 54, left: 22, backgroundColor: 'rgba(26,25,22,0.4)',
+    borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10,
+  },
   avatarWrap: { marginBottom: 10 },
   avatarImg: { width: 84, height: 84, borderRadius: 42, borderWidth: 3, borderColor: colors.paper },
   avatarEdit: {

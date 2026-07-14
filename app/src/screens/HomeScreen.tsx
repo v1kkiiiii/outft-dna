@@ -25,13 +25,14 @@ function FeedArticle({ post, idx }: { post: Post; idx: number }) {
   const preview = commentsFor(key).slice(0, 2);
   const goComments = () => navigate('comments', { commentsKey: key, post });
   const name = post.handle.replace('@', '');
+  const openProfile = () => navigate('otherProfile', { personKey: name });
   return (
     <View>
-      <View style={s.artHead}>
+      <Pressable style={s.artHead} onPress={openProfile}>
         <Avatar initials={post.ava} color={post.color} size={32} />
         <Text style={s.artName}>{name}</Text>
         <Text style={s.artDate}>{post.date}</Text>
-      </View>
+      </Pressable>
       <Photo tone={post.tone} style={s.artPhoto} />
       <Text style={s.artCaption}>{post.caption}</Text>
       <View style={s.artActions}>

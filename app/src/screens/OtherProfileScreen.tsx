@@ -9,8 +9,8 @@ const LIGHT = ['#FFFFFF', '#F0EBE3', '#E8D8C4', '#D8CFC4', '#E8E8E8'];
 
 export default function OtherProfileScreen() {
   const { navigate, goBack, params, following, toggleFollow, showToast } = useApp();
-  const key = params.personKey ?? 'lenav';
-  const person = PEOPLE.find((p) => p.key === key)!;
+  const person = PEOPLE.find((p) => p.key === params.personKey) ?? PEOPLE[0];
+  const key = person.key;
   const isFollowing = following.includes(key);
   // Derive a rough aesthetic breakdown from this person's own tags so their
   // wheel reads as their palette, not a generic ramp.

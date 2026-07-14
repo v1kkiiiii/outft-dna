@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { colors, dnaColors, fonts } from './theme';
 import { useApp, ScreenKey } from './state';
 
@@ -107,41 +107,60 @@ export function DnaWheel({ data, size = 160, centerLabel = 'you', palette }: {
 // Simple line icons drawn with text glyphs to avoid an icon library
 function PersonIcon({ color }: { color: string }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 20 20">
-      <Circle cx={10} cy={6.5} r={3.5} fill={color} />
-      <Path d="M2.5 18c0-4.14 3.36-7 7.5-7s7.5 2.86 7.5 7" stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" />
+    <Svg width={24} height={24} viewBox="0 0 24 24">
+      <Circle cx={12} cy={8} r={4} stroke={color} strokeWidth={1.6} fill="none" />
+      <Path d="M4.5 20c0-4 3.4-6.5 7.5-6.5s7.5 2.5 7.5 6.5" stroke={color} strokeWidth={1.6} fill="none" strokeLinecap="round" />
     </Svg>
   );
 }
 
 function CreateIcon({ color }: { color: string }) {
   return (
-    <Svg width={22} height={22} viewBox="0 0 22 22">
-      <Path d="M4 4.5C4 3.67 4.67 3 5.5 3h11c.83 0 1.5.67 1.5 1.5v11c0 .83-.67 1.5-1.5 1.5h-11C4.67 17 4 16.33 4 15.5v-11z" stroke={color} strokeWidth={1.4} fill="none" />
-      <Path d="M10 7.5v6M7 10.5h6" stroke={color} strokeWidth={1.4} strokeLinecap="round" />
+    <Svg width={24} height={24} viewBox="0 0 24 24">
+      <Rect x={4} y={4} width={16} height={16} rx={4} stroke={color} strokeWidth={1.6} fill="none" />
+      <Path d="M12 8.5v7M8.5 12h7" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function HomeIcon({ color }: { color: string }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24">
+      <Path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1v-8.5z" stroke={color} strokeWidth={1.6} fill="none" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function TwinsIcon({ color }: { color: string }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24">
+      <Circle cx={9} cy={12} r={5.5} stroke={color} strokeWidth={1.6} fill="none" />
+      <Circle cx={15} cy={12} r={5.5} stroke={color} strokeWidth={1.6} fill="none" />
     </Svg>
   );
 }
 
 export function BottomNav() {
   const { screen, navigate } = useApp();
+  const homeActive = ['home', 'messages', 'activity'].includes(screen);
+  const twinsActive = ['twins', 'otherProfile'].includes(screen);
   const profileActive = ['profile', 'dna', 'premium', 'wrapped'].includes(screen);
   return (
     <View style={s.bnav}>
       <Pressable style={s.nb} onPress={() => navigate('home')}>
-        <Text style={{ fontSize: 20, color: screen === 'home' || screen === 'messages' || screen === 'activity' ? colors.ink : colors.faint }}>⌂</Text>
-        <Text style={[s.nbLabel, (screen === 'home' || screen === 'messages' || screen === 'activity') && { color: colors.ink }]}>HOME</Text>
+        <View style={s.navIcon}><HomeIcon color={homeActive ? colors.ink : colors.faint} /></View>
+        <Text style={[s.nbLabel, homeActive && { color: colors.ink }]}>HOME</Text>
       </Pressable>
       <Pressable style={s.nb} onPress={() => navigate('camera')}>
-        <CreateIcon color={screen === 'camera' ? colors.ink : colors.faint} />
+        <View style={s.navIcon}><CreateIcon color={screen === 'camera' ? colors.ink : colors.faint} /></View>
         <Text style={[s.nbLabel, screen === 'camera' && { color: colors.ink }]}>CREATE</Text>
       </Pressable>
       <Pressable style={s.nb} onPress={() => navigate('twins')}>
-        <Text style={{ fontSize: 20, color: screen === 'twins' || screen === 'otherProfile' ? colors.ink : colors.faint }}>◎</Text>
-        <Text style={[s.nbLabel, (screen === 'twins' || screen === 'otherProfile') && { color: colors.ink }]}>TWINS</Text>
+        <View style={s.navIcon}><TwinsIcon color={twinsActive ? colors.ink : colors.faint} /></View>
+        <Text style={[s.nbLabel, twinsActive && { color: colors.ink }]}>TWINS</Text>
       </Pressable>
       <Pressable style={s.nb} onPress={() => navigate('profile')}>
-        <PersonIcon color={profileActive ? colors.ink : colors.faint} />
+        <View style={s.navIcon}><PersonIcon color={profileActive ? colors.ink : colors.faint} /></View>
         <Text style={[s.nbLabel, profileActive && { color: colors.ink }]}>PROFILE</Text>
       </Pressable>
     </View>
@@ -212,7 +231,8 @@ const s = StyleSheet.create({
     paddingTop: 10, paddingBottom: 24, borderTopWidth: 1, borderTopColor: colors.line,
     backgroundColor: colors.paper,
   },
-  nb: { alignItems: 'center', gap: 3, paddingHorizontal: 18 },
+  nb: { alignItems: 'center', gap: 4, paddingHorizontal: 14 },
+  navIcon: { height: 24, alignItems: 'center', justifyContent: 'center' },
   nbLabel: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 1.5, color: colors.faint },
   toastWrap: { position: 'absolute', bottom: 100, left: 0, right: 0, alignItems: 'center' },
   toast: { backgroundColor: colors.ink, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 20 },
