@@ -4,6 +4,17 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { colors, dnaColors, fonts } from './theme';
 import { useApp, ScreenKey } from './state';
 
+export function CommentIcon({ color = colors.ink, size = 18 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20">
+      <Path
+        d="M2 4.5C2 3.67 2.67 3 3.5 3h13c.83 0 1.5.67 1.5 1.5v8c0 .83-.67 1.5-1.5 1.5H8l-3.5 3v-3H3.5C2.67 13 2 12.33 2 11.5v-7z"
+        stroke={color} strokeWidth={1.3} fill="none" strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function Avatar({ initials, color, size = 36 }: { initials: string; color: string; size?: number }) {
   return (
     <View style={{
@@ -59,10 +70,13 @@ export function Polaroid({ uri, tone, meta, number, width = 96, onPress, tiltInd
   );
 }
 
-// DNA donut wheel from stacked stroke arcs
-export function DnaWheel({ data, size = 160, centerLabel = 'you' }: {
-  data: { label: string; pct: number }[]; size?: number; centerLabel?: string;
+// DNA donut wheel from stacked stroke arcs. Pass `palette` to tint the wheel
+// with a specific person's own color story instead of the default ramp —
+// used so each twin's aesthetic reads visually distinct.
+export function DnaWheel({ data, size = 160, centerLabel = 'you', palette }: {
+  data: { label: string; pct: number }[]; size?: number; centerLabel?: string; palette?: string[];
 }) {
+  const ramp = palette && palette.length > 0 ? palette : dnaColors;
   const r = 68;
   const c = 2 * Math.PI * r;
   let offset = 0;
@@ -73,7 +87,7 @@ export function DnaWheel({ data, size = 160, centerLabel = 'you' }: {
           const len = (d.pct / 100) * c;
           const el = (
             <Circle key={d.label} cx={90} cy={90} r={r} fill="none"
-              stroke={dnaColors[i % dnaColors.length]} strokeWidth={22}
+              stroke={ramp[i % ramp.length]} strokeWidth={22}
               strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-offset} />
           );
           offset += len;
@@ -91,12 +105,6 @@ export function DnaWheel({ data, size = 160, centerLabel = 'you' }: {
 }
 
 // Simple line icons drawn with text glyphs to avoid an icon library
-const NAV_ITEMS: { key: ScreenKey; glyph: string; label: string; activeFor: ScreenKey[] }[] = [
-  { key: 'home', glyph: '⌂', label: 'HOME', activeFor: ['home', 'messages', 'activity'] },
-  { key: 'camera', glyph: '◉', label: 'CAMERA', activeFor: ['camera'] },
-  { key: 'twins', glyph: '◎', label: 'TWINS', activeFor: ['twins', 'otherProfile'] },
-];
-
 function PersonIcon({ color }: { color: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 20 20">
@@ -106,20 +114,32 @@ function PersonIcon({ color }: { color: string }) {
   );
 }
 
+function CreateIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 22 22">
+      <Path d="M4 4.5C4 3.67 4.67 3 5.5 3h11c.83 0 1.5.67 1.5 1.5v11c0 .83-.67 1.5-1.5 1.5h-11C4.67 17 4 16.33 4 15.5v-11z" stroke={color} strokeWidth={1.4} fill="none" />
+      <Path d="M10 7.5v6M7 10.5h6" stroke={color} strokeWidth={1.4} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function BottomNav() {
   const { screen, navigate } = useApp();
   const profileActive = ['profile', 'dna', 'premium', 'wrapped'].includes(screen);
   return (
     <View style={s.bnav}>
-      {NAV_ITEMS.map((item) => {
-        const active = item.activeFor.includes(screen);
-        return (
-          <Pressable key={item.key} style={s.nb} onPress={() => navigate(item.key)}>
-            <Text style={{ fontSize: 20, color: active ? colors.ink : colors.faint }}>{item.glyph}</Text>
-            <Text style={[s.nbLabel, active && { color: colors.ink }]}>{item.label}</Text>
-          </Pressable>
-        );
-      })}
+      <Pressable style={s.nb} onPress={() => navigate('home')}>
+        <Text style={{ fontSize: 20, color: screen === 'home' || screen === 'messages' || screen === 'activity' ? colors.ink : colors.faint }}>⌂</Text>
+        <Text style={[s.nbLabel, (screen === 'home' || screen === 'messages' || screen === 'activity') && { color: colors.ink }]}>HOME</Text>
+      </Pressable>
+      <Pressable style={s.nb} onPress={() => navigate('camera')}>
+        <CreateIcon color={screen === 'camera' ? colors.ink : colors.faint} />
+        <Text style={[s.nbLabel, screen === 'camera' && { color: colors.ink }]}>CREATE</Text>
+      </Pressable>
+      <Pressable style={s.nb} onPress={() => navigate('twins')}>
+        <Text style={{ fontSize: 20, color: screen === 'twins' || screen === 'otherProfile' ? colors.ink : colors.faint }}>◎</Text>
+        <Text style={[s.nbLabel, (screen === 'twins' || screen === 'otherProfile') && { color: colors.ink }]}>TWINS</Text>
+      </Pressable>
       <Pressable style={s.nb} onPress={() => navigate('profile')}>
         <PersonIcon color={profileActive ? colors.ink : colors.faint} />
         <Text style={[s.nbLabel, profileActive && { color: colors.ink }]}>PROFILE</Text>

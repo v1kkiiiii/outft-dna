@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
 import { useApp } from '../state';
 import { PEOPLE } from '../data';
-import { Avatar, Photo, SectionLabel, Tag } from '../ui';
+import { Avatar, CommentIcon, DnaWheel, Photo, SectionLabel, Tag } from '../ui';
 
 const LIGHT = ['#FFFFFF', '#F0EBE3', '#E8D8C4', '#D8CFC4', '#E8E8E8'];
 
@@ -12,6 +12,9 @@ export default function OtherProfileScreen() {
   const key = params.personKey ?? 'lenav';
   const person = PEOPLE.find((p) => p.key === key)!;
   const isFollowing = following.includes(key);
+  // Derive a rough aesthetic breakdown from this person's own tags so their
+  // wheel reads as their palette, not a generic ramp.
+  const dnaData = person.tags.map((t, i) => ({ label: t, pct: [46, 32, 22][i] ?? 10 }));
 
   const post = {
     idx: 300,
@@ -66,8 +69,11 @@ export default function OtherProfileScreen() {
 
       <View style={{ paddingHorizontal: 22, gap: 12 }}>
         <SectionLabel>THEIR TRACE</SectionLabel>
-        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-          {person.tags.map((t) => <Tag key={t} label={t} />)}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <DnaWheel data={dnaData} size={92} centerLabel={key} palette={person.colors} />
+          <View style={{ flex: 1, flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            {person.tags.map((t) => <Tag key={t} label={t} />)}
+          </View>
         </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           {person.colors.map((c) => (
@@ -98,7 +104,7 @@ export default function OtherProfileScreen() {
           </View>
           <View style={{ flexDirection: 'row', gap: 16 }}>
             <Text style={{ fontSize: 15, color: colors.ink }}>♡</Text>
-            <Text style={{ fontSize: 15, color: colors.ink }}>⋯</Text>
+            <CommentIcon size={16} />
             <Text style={{ fontSize: 15, color: colors.ink }}>▢</Text>
           </View>
         </Pressable>

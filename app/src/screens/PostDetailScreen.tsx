@@ -3,7 +3,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-na
 import { colors, fonts } from '../theme';
 import { BRAND_PICKS, ECHO_POSTS, POSTS } from '../data';
 import { useApp } from '../state';
-import { Avatar, Header, Photo, Rule, SectionLabel, Tag } from '../ui';
+import { Avatar, CommentIcon, Header, Photo, Rule, SectionLabel, Tag } from '../ui';
 import { SaveSheet } from '../ui-save-sheet';
 
 export default function PostDetailScreen() {
@@ -57,13 +57,21 @@ export default function PostDetailScreen() {
               <Text style={{ fontSize: 20, color: liked ? colors.likeRed : colors.ink }}>{liked ? '♥' : '♡'}</Text>
             </Pressable>
             <Pressable onPress={() => navigate('comments', { commentsKey: 'post-' + post.idx, post })} hitSlop={8}>
-              <Text style={{ fontSize: 18, color: colors.ink }}>⋯</Text>
+              <CommentIcon size={19} />
             </Pressable>
             <Pressable onPress={onBookmark} hitSlop={8}>
               <Text style={{ fontSize: 18, color: colors.ink }}>{savedIn ? '▣' : '▢'}</Text>
             </Pressable>
           </View>
           <Text style={s.likes}>{post.likes + (liked ? 1 : 0)} likes</Text>
+
+          <Pressable
+            style={s.findSimilarBtn}
+            onPress={() => { showToast('finding brands that match this aesthetic…'); navigate('twins'); }}
+          >
+            <Text style={s.findSimilarText}>FIND SIMILAR</Text>
+          </Pressable>
+
           <View style={s.dnaCard}>
             <SectionLabel>OUTFIT DNA</SectionLabel>
             <Text style={s.dnaText}>{post.dna}</Text>
@@ -109,6 +117,11 @@ const s = StyleSheet.create({
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
   actionsRow: { flexDirection: 'row', alignItems: 'center', gap: 18 },
   likes: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted, marginTop: 10 },
+  findSimilarBtn: {
+    borderWidth: 1, borderColor: colors.ink, borderRadius: 999, paddingVertical: 11,
+    alignItems: 'center', marginTop: 14,
+  },
+  findSimilarText: { fontFamily: fonts.sansMedium, fontSize: 11, letterSpacing: 2, color: colors.ink },
   dnaCard: { backgroundColor: '#F7F7F7', borderRadius: 12, padding: 15, marginTop: 16 },
   dnaText: { fontFamily: fonts.serifItalic, fontSize: 15, color: colors.ink, marginTop: 6 },
   shopBtn: {

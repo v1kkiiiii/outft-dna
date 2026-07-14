@@ -138,9 +138,14 @@ export default function ProfileScreen() {
             <Text style={st.miniRowText}>Fashion DNA</Text>
             <Text style={{ fontSize: 16, color: colors.sand }}>›</Text>
           </Pressable>
-          <Pressable onPress={() => navigate('premium')} style={st.miniRow}>
-            <Text style={st.miniRowText}>DNA Premium</Text>
-            <Text style={{ fontSize: 16, color: colors.sand }}>›</Text>
+
+          <Pressable onPress={() => navigate('premium')} style={st.premiumBanner}>
+            <View style={{ flex: 1 }}>
+              <Text style={st.premiumKicker}>UNLOCK</Text>
+              <Text style={st.premiumTitle}>DNA Premium</Text>
+              <Text style={st.premiumCopy}>Deeper trends, unlimited archive, monthly reports</Text>
+            </View>
+            <Text style={{ fontSize: 20, color: colors.paper }}>›</Text>
           </Pressable>
         </View>
       )}
@@ -364,6 +369,13 @@ const st = StyleSheet.create({
     paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line,
   },
   miniRowText: { fontFamily: fonts.serif, fontSize: 16, color: colors.ink },
+  premiumBanner: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.ink,
+    borderRadius: 12, padding: 16, marginTop: 4,
+  },
+  premiumKicker: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 2, color: '#B4A898' },
+  premiumTitle: { fontFamily: fonts.serif, fontSize: 20, color: colors.paper, marginTop: 2 },
+  premiumCopy: { fontFamily: fonts.sans, fontSize: 11, color: '#CFC7BC', marginTop: 3 },
   avatarWrap: { marginBottom: 10 },
   avatarImg: { width: 84, height: 84, borderRadius: 42, borderWidth: 3, borderColor: colors.paper },
   avatarEdit: {
