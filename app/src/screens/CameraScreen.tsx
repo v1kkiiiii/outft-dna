@@ -74,7 +74,7 @@ export default function CameraScreen() {
   const camGranted = permission?.granted;
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#111110' }}>
+    <View style={{ flex: 1, backgroundColor: colors.paper }}>
       <View style={s.topBar}>
         <Pressable onPress={() => navigate('home')} hitSlop={12}>
           <Text style={s.topGlyph}>×</Text>
@@ -100,9 +100,9 @@ export default function CameraScreen() {
             <Pressable
               key={c.key}
               onPress={() => setCategory(c.key)}
-              style={[s.catChip, sel && { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: '#FFFFFF' }]}
+              style={[s.catChip, sel && { backgroundColor: colors.ink, borderColor: colors.ink }]}
             >
-              <Text style={[s.catChipLabel, sel && { color: '#FFFFFF' }]}>{c.label}</Text>
+              <Text style={[s.catChipLabel, sel && { color: colors.paper }]}>{c.label}</Text>
             </Pressable>
           );
         })}
@@ -110,13 +110,13 @@ export default function CameraScreen() {
 
       <View style={s.shutterRow}>
         <Pressable style={s.sideBtn} onPress={upload}>
-          <Text style={s.sideGlyph}>▤</Text>
+          <Text style={s.sideGlyph}>▦</Text>
         </Pressable>
         <View style={s.halo}>
           <Pressable style={s.shutter} onPress={snap} disabled={!camGranted} />
         </View>
         <Pressable style={s.sideBtn} onPress={() => setFacing(facing === 'back' ? 'front' : 'back')}>
-          <Text style={s.sideGlyph}>⟲</Text>
+          <Text style={s.sideGlyph}>↻</Text>
         </Pressable>
       </View>
 
@@ -193,35 +193,35 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 22, paddingTop: 12, paddingBottom: 10,
   },
-  topGlyph: { fontSize: 24, color: '#FFFFFF' },
-  topTitle: { fontFamily: fonts.serif, fontSize: 18, color: '#FFFFFF' },
+  topGlyph: { fontSize: 24, color: colors.taupe },
+  topTitle: { fontFamily: fonts.serif, fontSize: 18, color: colors.ink },
   chipRow: { marginTop: 14, maxHeight: 34, flexGrow: 0 },
   catChip: {
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)', borderRadius: 999,
+    borderWidth: 1, borderColor: colors.line, borderRadius: 999,
     paddingVertical: 7, paddingHorizontal: 14,
   },
-  catChipLabel: { fontFamily: fonts.sansMedium, fontSize: 11, color: 'rgba(255,255,255,0.65)' },
+  catChipLabel: { fontFamily: fonts.sansMedium, fontSize: 11, color: colors.taupe },
   viewfinder: {
     flex: 1, marginHorizontal: 10, borderRadius: 18,
-    backgroundColor: '#26251F', overflow: 'hidden',
+    backgroundColor: colors.cream, overflow: 'hidden',
     alignItems: 'center', justifyContent: 'center',
   },
   permBox: { padding: 30, alignItems: 'center' },
-  permText: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 2, color: 'rgba(255,255,255,0.7)' },
+  permText: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 2, color: colors.sand },
   shutterRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 34, paddingVertical: 18,
   },
   sideBtn: {
-    width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
+    width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.line,
     alignItems: 'center', justifyContent: 'center',
   },
-  sideGlyph: { fontSize: 18, color: '#FFFFFF' },
+  sideGlyph: { fontSize: 16, color: colors.taupe },
   halo: {
-    width: 76, height: 76, borderRadius: 38, borderWidth: 3, borderColor: '#FFFFFF',
+    width: 76, height: 76, borderRadius: 38, borderWidth: 2, borderColor: colors.ink,
     alignItems: 'center', justifyContent: 'center',
   },
-  shutter: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFFFFF' },
+  shutter: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.ink },
   overlay: {
     ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.96)',
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22,

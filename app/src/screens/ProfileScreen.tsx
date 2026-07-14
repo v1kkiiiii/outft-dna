@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts } from '../theme';
 import { useApp } from '../state';
 import { BADGES, CATEGORIES, POSTS, SIGNATURE_COLORS } from '../data';
-import { Photo, PillButton, Polaroid, SectionLabel, Tag } from '../ui';
+import { Photo, PillButton, SectionLabel, Tag } from '../ui';
 
 const TABS = ['Trace', 'Saves', 'Backlog', 'Badges'] as const;
 type TabKey = (typeof TABS)[number];
@@ -16,9 +17,21 @@ const GROUPINGS = ['occasions', 'months', 'years'] as const;
 const LIGHT_DOT = (c: string) => ['#FFFFFF', '#F0EBE3', '#E8D8C4'].includes(c.toUpperCase()) || ['#FFFFFF', '#F0EBE3', '#E8D8C4'].includes(c);
 
 export default function ProfileScreen() {
-  const { navigate, showToast, latestOutfit, outfitCount, streak, profileName, collections, captures, savedPosts } = useApp();
+  const { navigate, showToast, update, latestOutfit, outfitCount, streak, profileName, avatarUri, collections, captures, savedPosts } = useApp();
   const [tab, setTab] = useState<TabKey>('Trace');
   const [grouping, setGrouping] = useState<(typeof GROUPINGS)[number]>('occasions');
+
+  const pickAvatar = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { showToast('photo permission needed'); return; }
+    const r = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], quality: 0.7, allowsEditing: true, aspect: [1, 1],
+    });
+    if (!r.canceled && r.assets[0]) {
+      update({ avatarUri: r.assets[0].uri });
+      showToast('profile photo updated');
+    }
+  };
 
   const sigTags = latestOutfit?.result.tags ?? ['Quiet luxury', 'Old money', 'Scandi'];
   const totalFits = 87 + outfitCount;
@@ -42,8 +55,22 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Name */}
-      <View style={{ alignItems: 'center', marginTop: -6, paddingHorizontal: 22 }}>
+      {/* Avatar + name */}
+      <View style={{ alignItems: 'center', marginTop: -44, paddingHorizontal: 22 }}>
+        <Pressable onPress={pickAvatar} style={st.avatarWrap}>
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={st.avatarImg} />
+          ) : (
+            <View style={[st.avatarImg, { backgroundColor: '#CDB89B', alignItems: 'center', justifyContent: 'center' }]}>
+              <Text style={{ fontFamily: fonts.sansMedium, fontSize: 22, color: colors.ink }}>
+                {profileName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View style={st.avatarEdit}>
+            <Text style={{ fontSize: 11, color: colors.paper }}>+</Text>
+          </View>
+        </Pressable>
         <Text style={{ fontFamily: fonts.serif, fontSize: 32, color: colors.ink }}>{profileName}</Text>
         <Text style={{ fontFamily: fonts.sans, fontSize: 9, letterSpacing: 2, color: colors.sand, marginTop: 4 }}>
           TRACING SINCE 12.03.25
@@ -190,22 +217,41 @@ export default function ProfileScreen() {
             Your wear archive. Every outfit becomes evidence of a style in motion.
           </Text>
 
+          {captures.length > 0 && (
+            <View style={{ marginTop: 22 }}>
+              <SectionLabel>Your captures</SectionLabel>
+              <View style={st.photoGrid}>
+                {captures.map((c) => (
+                  <Pressable
+                    key={c.id}
+                    style={st.photoTile}
+                    onPress={() => navigate('postDetail', {
+                      post: {
+                        idx: Number(c.id) || 0, handle: '@you', ava: 'EV', color: '#CDB89B',
+                        date: new Date(c.capturedAt).toLocaleDateString(),
+                        caption: c.caption ?? c.result.insight,
+                        tags: c.result.tags.slice(0, 2), likes: 0, dna: c.result.insight,
+                        tone: '#DFDFDF', photoUri: c.photoUri,
+                      },
+                    })}
+                  >
+                    <Photo uri={c.photoUri} style={{ width: '100%', height: '100%', borderRadius: 6 }} />
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
+
           {grouping === 'occasions' && CATEGORIES.slice(0, 4).map((cat, i) => (
             <View key={cat.key} style={{ marginTop: 22 }}>
               <SectionLabel>{cat.label}</SectionLabel>
-              <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+              <View style={st.photoGrid}>
                 {[0, 1, 2, 3].map((j) => {
                   const post = POSTS[i * 4 + j];
                   return (
-                    <Polaroid
-                      key={j}
-                      width={82}
-                      tone={post.tone}
-                      tiltIndex={j}
-                      meta={`Jun ${22 - j} · ${cat.label}`}
-                      number={`No. 0${j + 1}`}
-                      onPress={() => navigate('postDetail', { post })}
-                    />
+                    <Pressable key={j} style={st.photoTile} onPress={() => navigate('postDetail', { post })}>
+                      <Photo tone={post.tone} style={{ width: '100%', height: '100%', borderRadius: 6 }} />
+                    </Pressable>
                   );
                 })}
               </View>
@@ -214,13 +260,13 @@ export default function ProfileScreen() {
 
           {grouping === 'months' && (
             <>
-              <PolaroidGrid title="June" posts={POSTS.slice(0, 12)} onTap={(p) => navigate('postDetail', { post: p })} />
-              <PolaroidGrid title="May" posts={POSTS.slice(24, 30)} onTap={(p) => navigate('postDetail', { post: p })} />
+              <PhotoGrid title="June" posts={POSTS.slice(0, 12)} onTap={(p) => navigate('postDetail', { post: p })} />
+              <PhotoGrid title="May" posts={POSTS.slice(24, 30)} onTap={(p) => navigate('postDetail', { post: p })} />
             </>
           )}
 
           {grouping === 'years' && (
-            <PolaroidGrid title="2026" posts={POSTS.slice(0, 12)} onTap={(p) => navigate('postDetail', { post: p })} />
+            <PhotoGrid title="2026" posts={POSTS.slice(0, 12)} onTap={(p) => navigate('postDetail', { post: p })} />
           )}
 
           <Pressable onPress={() => navigate('premium')} style={st.lockRow}>
@@ -269,23 +315,17 @@ function StatCell({ num, label, onPress }: { num: string; label: string; onPress
   );
 }
 
-function PolaroidGrid({ title, posts, onTap }: {
+function PhotoGrid({ title, posts, onTap }: {
   title: string; posts: typeof POSTS; onTap: (p: (typeof POSTS)[number]) => void;
 }) {
   return (
     <View style={{ marginTop: 22 }}>
       <SectionLabel>{title}</SectionLabel>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 12 }}>
-        {posts.map((p, j) => (
-          <Polaroid
-            key={p.idx}
-            width={96}
-            tone={p.tone}
-            tiltIndex={j}
-            meta={p.date.split(' · ')[1] ?? p.date}
-            number={`No. ${String(j + 1).padStart(2, '0')}`}
-            onPress={() => onTap(p)}
-          />
+      <View style={st.photoGrid}>
+        {posts.map((p) => (
+          <Pressable key={p.idx} style={st.photoTile} onPress={() => onTap(p)}>
+            <Photo tone={p.tone} style={{ width: '100%', height: '100%', borderRadius: 6 }} />
+          </Pressable>
         ))}
       </View>
     </View>
@@ -310,6 +350,15 @@ const st = StyleSheet.create({
     paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line,
   },
   miniRowText: { fontFamily: fonts.serif, fontSize: 16, color: colors.ink },
+  avatarWrap: { marginBottom: 10 },
+  avatarImg: { width: 84, height: 84, borderRadius: 42, borderWidth: 3, borderColor: colors.paper },
+  avatarEdit: {
+    position: 'absolute', bottom: 2, right: 2, width: 22, height: 22, borderRadius: 11,
+    backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: colors.paper,
+  },
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
+  photoTile: { width: '23%', aspectRatio: 3 / 4, backgroundColor: colors.cream, borderRadius: 6 },
   boardChip: {
     borderWidth: 1, borderColor: colors.tagBorder, borderRadius: 999,
     paddingVertical: 5, paddingHorizontal: 12,

@@ -80,9 +80,11 @@ export function DnaWheel({ data, size = 160, centerLabel = 'you' }: {
           return el;
         })}
       </Svg>
-      <View style={{ position: 'absolute', alignItems: 'center' }}>
-        <Text style={{ fontFamily: fonts.serifItalic, fontSize: 22, color: colors.ink }}>{centerLabel}</Text>
-        <Text style={{ fontFamily: fonts.sans, fontSize: 8, letterSpacing: 2, color: colors.sand }}>FASHION DNA</Text>
+      <View style={{ position: 'absolute', alignItems: 'center', maxWidth: size * 0.5 }}>
+        <Text style={{ fontFamily: fonts.serifItalic, fontSize: Math.max(14, size * 0.11), color: colors.ink }}>{centerLabel}</Text>
+        <Text style={{ fontFamily: fonts.sans, fontSize: Math.max(6, size * 0.042), letterSpacing: size * 0.008, color: colors.sand }} numberOfLines={1}>
+          FASHION DNA
+        </Text>
       </View>
     </View>
   );
