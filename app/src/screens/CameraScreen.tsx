@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts } from '../theme';
 import { AnalysisResult, CATEGORIES } from '../data';
@@ -16,6 +16,9 @@ export default function CameraScreen() {
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [overlayOpen, setOverlayOpen] = useState(false);
+  const [brand, setBrand] = useState('');
+  const [caption, setCaption] = useState('');
+  const autoOpened = useRef(false);
 
   const handlePicked = async (asset: ImagePicker.ImagePickerAsset) => {
     setPhoto(asset.uri);
@@ -45,8 +48,15 @@ export default function CameraScreen() {
     if (!r.canceled && r.assets[0]) handlePicked(r.assets[0]);
   };
 
+  useEffect(() => {
+    if (autoOpened.current) return;
+    autoOpened.current = true;
+    capture();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const closeOverlay = () => { setOverlayOpen(false); };
-  const retake = () => { setPhoto(null); setResult(null); setOverlayOpen(false); };
+  const retake = () => { setPhoto(null); setResult(null); setOverlayOpen(false); setBrand(''); setCaption(''); };
 
   const share = () => {
     if (!photo || !result) return;
@@ -55,6 +65,8 @@ export default function CameraScreen() {
       photoUri: photo,
       result,
       category,
+      brand: brand.trim() || undefined,
+      caption: caption.trim() || undefined,
       capturedAt: new Date().toISOString(),
     };
     update({
@@ -74,21 +86,20 @@ export default function CameraScreen() {
       <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 40 }}>
         <Text style={s.h1}>Capture your trace</Text>
 
-        <View style={s.grid}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipRow} contentContainerStyle={{ gap: 6 }}>
           {CATEGORIES.map((c) => {
             const sel = c.key === category;
             return (
               <Pressable
                 key={c.key}
                 onPress={() => setCategory(c.key)}
-                style={[s.catCard, sel && { backgroundColor: colors.ink, borderColor: colors.ink }]}
+                style={[s.catChip, sel && { backgroundColor: colors.ink, borderColor: colors.ink }]}
               >
-                <Text style={[s.catLabel, sel && { color: colors.paper }]}>{c.label}</Text>
-                <Text style={[s.catSub, sel && { color: colors.paper }]}>{c.sub}</Text>
+                <Text style={[s.catChipLabel, sel && { color: colors.paper }]}>{c.label}</Text>
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
 
         <View style={s.viewfinder}>
           {photo ? (
@@ -149,6 +160,20 @@ export default function CameraScreen() {
                 <View style={s.tagsRow}>
                   {result.tags.map((t) => <Tag key={t} label={t} />)}
                 </View>
+                <TextInput
+                  style={s.metaInput}
+                  placeholder="add a brand (optional)"
+                  placeholderTextColor={colors.sand}
+                  value={brand}
+                  onChangeText={setBrand}
+                />
+                <TextInput
+                  style={s.metaInput}
+                  placeholder="write a caption"
+                  placeholderTextColor={colors.sand}
+                  value={caption}
+                  onChangeText={setCaption}
+                />
               </View>
             ) : null}
             <View style={s.barcode}>
@@ -170,16 +195,15 @@ export default function CameraScreen() {
 }
 
 const s = StyleSheet.create({
-  h1: { fontFamily: fonts.serif, fontSize: 30, color: colors.ink, marginTop: 4, marginBottom: 16 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
-  catCard: {
-    width: '31%', flexGrow: 1, borderWidth: 1, borderColor: colors.tagBorder,
-    borderRadius: 12, padding: 10,
+  h1: { fontFamily: fonts.serif, fontSize: 30, color: colors.ink, marginTop: 4, marginBottom: 12 },
+  chipRow: { marginBottom: 14, maxHeight: 34 },
+  catChip: {
+    borderWidth: 1, borderColor: colors.tagBorder, borderRadius: 999,
+    paddingVertical: 7, paddingHorizontal: 14,
   },
-  catLabel: { fontFamily: fonts.sansMedium, fontSize: 12, color: colors.ink },
-  catSub: { fontFamily: fonts.serifItalic, fontSize: 11, color: colors.faint, marginTop: 2 },
+  catChipLabel: { fontFamily: fonts.sansMedium, fontSize: 11, color: colors.ink },
   viewfinder: {
-    width: '68%', aspectRatio: 3 / 4, alignSelf: 'center', borderRadius: 4,
+    width: '92%', aspectRatio: 3 / 4, alignSelf: 'center', borderRadius: 4,
     backgroundColor: colors.cream, overflow: 'hidden',
     alignItems: 'center', justifyContent: 'center',
   },
@@ -221,6 +245,10 @@ const s = StyleSheet.create({
   fill: { height: 2, backgroundColor: colors.ink },
   aPct: { fontFamily: fonts.sans, fontSize: 9, color: colors.taupe, width: 30, textAlign: 'right' },
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  metaInput: {
+    fontFamily: fonts.sans, fontSize: 12, color: colors.ink, marginTop: 10,
+    borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 4,
+  },
   barcode: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', marginTop: 14 },
   footer: { fontFamily: fonts.sans, fontSize: 8, color: colors.faint, textAlign: 'center', marginTop: 8, letterSpacing: 1 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 18, width: '100%', maxWidth: 290 },

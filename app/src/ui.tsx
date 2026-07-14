@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { colors, dnaColors, fonts } from './theme';
 import { useApp, ScreenKey } from './state';
 
@@ -93,11 +93,20 @@ const NAV_ITEMS: { key: ScreenKey; glyph: string; label: string; activeFor: Scre
   { key: 'home', glyph: '⌂', label: 'HOME', activeFor: ['home', 'messages', 'activity'] },
   { key: 'camera', glyph: '◉', label: 'CAMERA', activeFor: ['camera'] },
   { key: 'twins', glyph: '◎', label: 'TWINS', activeFor: ['twins', 'otherProfile'] },
-  { key: 'profile', glyph: '◇', label: 'PROFILE', activeFor: ['profile', 'dna', 'premium', 'wrapped'] },
 ];
+
+function PersonIcon({ color }: { color: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20">
+      <Circle cx={10} cy={6.5} r={3.5} fill={color} />
+      <Path d="M2.5 18c0-4.14 3.36-7 7.5-7s7.5 2.86 7.5 7" stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" />
+    </Svg>
+  );
+}
 
 export function BottomNav() {
   const { screen, navigate } = useApp();
+  const profileActive = ['profile', 'dna', 'premium', 'wrapped'].includes(screen);
   return (
     <View style={s.bnav}>
       {NAV_ITEMS.map((item) => {
@@ -109,6 +118,10 @@ export function BottomNav() {
           </Pressable>
         );
       })}
+      <Pressable style={s.nb} onPress={() => navigate('profile')}>
+        <PersonIcon color={profileActive ? colors.ink : colors.faint} />
+        <Text style={[s.nbLabel, profileActive && { color: colors.ink }]}>PROFILE</Text>
+      </Pressable>
     </View>
   );
 }

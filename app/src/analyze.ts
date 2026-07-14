@@ -1,4 +1,4 @@
-// Real Style DNA analysis — calls the vision model directly, mirroring the
+// Real Style DNA analysis — calls Claude vision directly, mirroring the
 // prompt in outft-dna/server.js. Falls back to the local mock if the key
 // is missing or the request fails, so the app always completes the flow.
 // NOTE: the key ships inside this test build via EXPO_PUBLIC_*; move this

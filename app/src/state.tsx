@@ -12,6 +12,8 @@ export interface LatestOutfit {
   photoUri: string;
   result: AnalysisResult;
   category: string;
+  brand?: string;
+  caption?: string;
   capturedAt: string;
 }
 

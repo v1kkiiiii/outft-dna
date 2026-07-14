@@ -54,7 +54,7 @@ export default function CollectionScreen() {
                 </View>
                 <View style={{ flexDirection: 'row', gap: 14, marginTop: 2 }}>
                   <Text style={{ fontSize: 13, color: colors.faint }}>♡</Text>
-                  <Text style={{ fontSize: 13, color: colors.faint }}>💬</Text>
+                  <Text style={{ fontSize: 13, color: colors.faint }}>⋯</Text>
                 </View>
               </View>
             </Pressable>

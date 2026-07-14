@@ -72,10 +72,10 @@ export default function HomeScreen() {
         <Text style={s.wordmark}>outft.</Text>
         <View style={{ flexDirection: 'row', gap: 18 }}>
           <Pressable onPress={() => navigate('messages')} hitSlop={8}>
-            <Text style={s.headerGlyph}>✉</Text>
+            <Text style={s.headerGlyph}>▤</Text>
           </Pressable>
           <Pressable onPress={() => navigate('activity')} hitSlop={8}>
-            <Text style={s.headerGlyph}>🔔</Text>
+            <Text style={s.headerGlyph}>◈</Text>
           </Pressable>
         </View>
       </View>
@@ -151,6 +151,14 @@ export default function HomeScreen() {
         <Text style={s.insightText}>{insight}</Text>
       </View>
 
+      {/* Brand spotlight — one sponsored slot per style lane. Demo placeholder
+          only: no real ad-serving or user-data targeting is wired up here. */}
+      <View style={s.sponsorCard}>
+        <Text style={s.sponsorLabel}>SPONSORED · QUIET LUXURY LANE</Text>
+        <Text style={s.sponsorBrand}>Featured brand</Text>
+        <Text style={s.sponsorCopy}>Shop the pieces closest to your trace.</Text>
+      </View>
+
       {/* Wear this again */}
       <Pressable style={s.wearCard} onPress={() => navigate('postDetail', { post: POSTS[8] })}>
         <Photo tone={POSTS[8].tone} style={{ width: 56, height: 70, borderRadius: 6 }} />
@@ -211,6 +219,13 @@ const s = StyleSheet.create({
   },
   echoBadgeText: { fontFamily: fonts.sans, fontSize: 8, color: colors.ink },
   insightCard: { backgroundColor: colors.cream, borderRadius: 12, padding: 18, marginTop: 24 },
+  sponsorCard: {
+    borderWidth: 1, borderColor: colors.tagBorder, borderRadius: 12,
+    padding: 16, marginTop: 14,
+  },
+  sponsorLabel: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 1.5, color: colors.sand, marginBottom: 6 },
+  sponsorBrand: { fontFamily: fonts.serif, fontSize: 18, color: colors.ink },
+  sponsorCopy: { fontFamily: fonts.sans, fontSize: 12, color: colors.taupe, marginTop: 3 },
   insightText: { fontFamily: fonts.serifItalic, fontSize: 15, lineHeight: 22, color: colors.ink },
   wearCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: colors.line,

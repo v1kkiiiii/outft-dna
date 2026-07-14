@@ -98,7 +98,7 @@ export default function OtherProfileScreen() {
           </View>
           <View style={{ flexDirection: 'row', gap: 16 }}>
             <Text style={{ fontSize: 15, color: colors.ink }}>♡</Text>
-            <Text style={{ fontSize: 15, color: colors.ink }}>💬</Text>
+            <Text style={{ fontSize: 15, color: colors.ink }}>⋯</Text>
             <Text style={{ fontSize: 15, color: colors.ink }}>▢</Text>
           </View>
         </Pressable>

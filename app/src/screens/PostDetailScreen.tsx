@@ -57,7 +57,7 @@ export default function PostDetailScreen() {
               <Text style={{ fontSize: 20, color: liked ? colors.likeRed : colors.ink }}>{liked ? '♥' : '♡'}</Text>
             </Pressable>
             <Pressable onPress={() => navigate('comments', { commentsKey: 'post-' + post.idx, post })} hitSlop={8}>
-              <Text style={{ fontSize: 18, color: colors.ink }}>💬</Text>
+              <Text style={{ fontSize: 18, color: colors.ink }}>⋯</Text>
             </Pressable>
             <Pressable onPress={onBookmark} hitSlop={8}>
               <Text style={{ fontSize: 18, color: colors.ink }}>{savedIn ? '▣' : '▢'}</Text>

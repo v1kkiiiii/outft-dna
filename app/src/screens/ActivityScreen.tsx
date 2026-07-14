@@ -6,7 +6,7 @@ import { useApp } from '../state';
 import { Header, SectionLabel } from '../ui';
 
 const GLYPHS: Record<string, string> = {
-  echo: '◎', follow: '+', dna: '◇', badge: '✦', streak: '⚡',
+  echo: '◎', follow: '+', dna: '◇', badge: '✦', streak: '▲',
 };
 
 export default function ActivityScreen() {
