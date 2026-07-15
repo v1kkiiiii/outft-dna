@@ -61,7 +61,9 @@ function FeedArticle({ post, idx }: { post: Post; idx: number }) {
 }
 
 export default function HomeScreen() {
-  const { navigate, profileName, streak, latestOutfit } = useApp();
+  const { navigate, profileName, streak, latestOutfit, captures } = useApp();
+  const hasTrace = !!latestOutfit || captures.length > 0;
+  const todayPhotoUri = latestOutfit?.photoUri ?? captures[0]?.photoUri;
   const firstName = profileName.split(' ')[0];
   const insight = latestOutfit?.result.insight
     ?? 'This week, your style has been tracing quiet confidence. 5 people echoed your fits.';
@@ -121,15 +123,24 @@ export default function HomeScreen() {
 
       {/* Today's trace */}
       <SectionLabel style={{ marginTop: 30, marginBottom: 12 }}>TODAY'S TRACE</SectionLabel>
-      <Pressable onPress={() => navigate('postDetail', { post: POSTS[0] })}>
-        <Photo uri={latestOutfit?.photoUri} tone="#DFDFDF" style={s.todayPhoto} />
-        <View style={s.todayBar}>
-          <Text style={s.todayBarText}>Today's trace · 22 June</Text>
-          <Pressable onPress={() => navigate('camera')} hitSlop={10}>
-            <Text style={{ fontSize: 14, color: colors.ink }}>✎</Text>
+      {hasTrace ? (
+        <Pressable onPress={() => navigate('postDetail', { post: POSTS[0] })}>
+          <Photo uri={todayPhotoUri} tone="#DFDFDF" style={s.todayPhoto} />
+          <View style={s.todayBar}>
+            <Text style={s.todayBarText}>Today's trace · 22 June</Text>
+            <Pressable onPress={() => navigate('camera')} hitSlop={10}>
+              <Text style={{ fontSize: 14, color: colors.ink }}>✎</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      ) : (
+        <View style={s.emptyTrace}>
+          <Text style={s.emptyTraceText}>No trace yet today.</Text>
+          <Pressable style={s.emptyTracePill} onPress={() => navigate('camera')}>
+            <Text style={s.emptyTracePillText}>CAPTURE YOUR FIRST TRACE</Text>
           </Pressable>
         </View>
-      </Pressable>
+      )}
 
       {/* Insight card */}
       <View style={s.insightCard}>
@@ -183,6 +194,16 @@ const s = StyleSheet.create({
     paddingVertical: 12, paddingHorizontal: 16,
   },
   todayBarText: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted },
+  emptyTrace: {
+    backgroundColor: colors.cream, borderRadius: 12, paddingVertical: 36,
+    paddingHorizontal: 20, alignItems: 'center',
+  },
+  emptyTraceText: { fontFamily: fonts.serifItalic, fontSize: 17, color: colors.ink },
+  emptyTracePill: {
+    marginTop: 16, borderWidth: 1, borderColor: colors.ink, borderRadius: 999,
+    paddingVertical: 8, paddingHorizontal: 16,
+  },
+  emptyTracePillText: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 1.5, color: colors.ink },
   sectionRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 32, marginBottom: 12 },
   sectionTitle: { fontFamily: fonts.serif, fontSize: 19, color: colors.ink },
   sectionAside: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 2, color: colors.faint },

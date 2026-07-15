@@ -26,6 +26,7 @@ import PostDetailScreen from './src/screens/PostDetailScreen';
 import CollectionScreen from './src/screens/CollectionScreen';
 import CommentsScreen from './src/screens/CommentsScreen';
 import OtherProfileScreen from './src/screens/OtherProfileScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 
 const SCREENS: Record<ScreenKey, React.ComponentType> = {
   signin: SignInScreen,
@@ -43,6 +44,7 @@ const SCREENS: Record<ScreenKey, React.ComponentType> = {
   collection: CollectionScreen,
   comments: CommentsScreen,
   otherProfile: OtherProfileScreen,
+  settings: SettingsScreen,
 };
 
 // Screens rendered on the dark ink background with no bottom nav

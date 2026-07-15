@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts } from '../theme';
@@ -70,7 +70,21 @@ export default function ProfileScreen() {
   };
 
   const sigTags = latestOutfit?.result.tags ?? ['Quiet luxury', 'Old money', 'Scandi'];
-  const totalFits = 87 + outfitCount;
+
+  // Real stats from server items + local captures (deduped); demo fallbacks when empty.
+  const { totalFits, daysCaptured } = useMemo(() => {
+    const merged = [...captures, ...serverItems.filter((i) => !captures.some((c) => c.id === i.id))];
+    const days = new Set(
+      merged.map((i) => {
+        const d = new Date(i.capturedAt);
+        return isNaN(d.getTime()) ? i.capturedAt : d.toDateString();
+      }),
+    );
+    return {
+      totalFits: merged.length > 0 ? merged.length : 87 + outfitCount,
+      daysCaptured: days.size > 0 ? days.size : 142,
+    };
+  }, [captures, serverItems, outfitCount]);
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.paper }} contentContainerStyle={{ paddingBottom: 48 }}>
@@ -122,7 +136,7 @@ export default function ProfileScreen() {
       <View style={st.stats}>
         <StatCell num={String(totalFits)} label="outfits traced" />
         <View style={st.statDiv} />
-        <StatCell num="142" label="days captured" />
+        <StatCell num={String(daysCaptured)} label="days captured" />
         <View style={st.statDiv} />
         <StatCell num="31" label="echoes found" onPress={() => navigate('twins')} />
         <View style={st.statDiv} />

@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, dnaColors, fonts } from '../theme';
 import { DNA_DEFAULT } from '../data';
-import { useApp } from '../state';
+import { LatestOutfit, useApp } from '../state';
+import { computeDna, fetchMyOutfits } from '../lib/historyApi';
 import { DnaWheel, Header, SectionLabel } from '../ui';
 
 const DELTAS = [
@@ -12,8 +13,30 @@ const DELTAS = [
 ];
 
 export default function DnaScreen() {
-  const { goBack, navigate, latestOutfit } = useApp();
-  const dna = latestOutfit?.result.aesthetics ?? DNA_DEFAULT;
+  const { goBack, navigate, latestOutfit, captures } = useApp();
+  const [serverItems, setServerItems] = useState<LatestOutfit[]>([]);
+
+  // Best-effort server history; offline or signed-out we keep the fallback.
+  useEffect(() => {
+    let cancelled = false;
+    fetchMyOutfits().then((r) => {
+      if (!cancelled && r.ok && r.items.length > 0) setServerItems(r.items);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Server items + local captures, deduped by id, newest first from each source.
+  const merged = useMemo(() => {
+    const localIds = new Set(captures.map((c) => c.id));
+    return [...captures, ...serverItems.filter((i) => !localIds.has(i.id))];
+  }, [captures, serverItems]);
+
+  const realDna = useMemo(() => computeDna(merged), [merged]);
+  const analysisCount = useMemo(
+    () => merged.filter((i) => i.result.aesthetics.some((a) => a.pct > 0)).length,
+    [merged],
+  );
+  const dna = realDna.length > 0 ? realDna : (latestOutfit?.result.aesthetics ?? DNA_DEFAULT);
 
   const rows: { label: string; go: () => void }[] = [
     { label: 'ft. twin · @lenav — 94% echo · closest style match', go: () => navigate('twins') },
@@ -28,6 +51,14 @@ export default function DnaScreen() {
         <View style={{ alignItems: 'center', marginTop: 12 }}>
           <DnaWheel data={dna} size={180} />
         </View>
+
+        {realDna.length > 0 && analysisCount < 5 && (
+          <View style={{ alignItems: 'center', marginTop: 14 }}>
+            <SectionLabel>
+              {`EARLY DNA · BASED ON ${analysisCount} OUTFIT${analysisCount === 1 ? '' : 'S'}`}
+            </SectionLabel>
+          </View>
+        )}
 
         <View style={{ marginTop: 24, gap: 12 }}>
           {dna.map((d, i) => (
