@@ -53,7 +53,7 @@ begin
   update public.analysis_jobs
   set status = 'leased',
       started_at = now(),
-      attempt_count = attempt_count + 1
+      attempt_count = public.analysis_jobs.attempt_count + 1
   where public.analysis_jobs.id = v_job_id;
 
   update public.outfits
