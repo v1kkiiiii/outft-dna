@@ -142,7 +142,7 @@ export function resolveGarmentCategory(raw: string): GarmentCategory | null {
  */
 const BANNED_LANGUAGE_PATTERNS: RegExp[] = [
   // 1. Attractiveness / desirability of the person
-  /\b(hot|sexy|sexiest|ugly|gorgeous|beautiful person|attractive|unattractive|hottie)\b/i,
+  /\b(hot(?![- ]?pink)|sexy|sexiest|ugly|gorgeous|beautiful person|attractive|unattractive|hottie)\b/i,
   // 2. Body quality, shape, size, or weight
   /\b(slimming|flattering|unflattering|hides (your|her|his|their) (body|figure)|figure[- ]flattering|body[- ]?type|fat|overweight|skinny|curvy|petite frame|plus[- ]size)\b/i,
   // 3. Socioeconomic status or wealth judgment of the wearer
