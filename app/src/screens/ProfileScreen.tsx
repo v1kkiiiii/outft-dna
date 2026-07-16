@@ -97,7 +97,7 @@ export default function ProfileScreen() {
           </View>
         </Pressable>
         <Pressable
-          onPress={() => showToast('settings')}
+          onPress={() => navigate('settings')}
           hitSlop={12}
           style={{ position: 'absolute', top: 54, right: 22 }}
         >
