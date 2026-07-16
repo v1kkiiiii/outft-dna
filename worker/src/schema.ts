@@ -202,8 +202,12 @@ export const RawAnalysisSchema = z.object({
     .optional()
     .default([]),
   styleScores: z.record(z.string(), z.number()).optional().default({}),
-  confidence: z.number(),
-  insight: z.string().min(1).max(140),
+  // Optional at parse time so a valid unsupported response
+  // ({"unsupported": true, ...}) — which omits these — passes shape
+  // validation and is handled gracefully. The supported path below
+  // requires them explicitly.
+  confidence: z.number().optional(),
+  insight: z.string().min(1).max(140).optional(),
 });
 
 export type RawAnalysis = z.infer<typeof RawAnalysisSchema>;
@@ -310,6 +314,16 @@ export function validate(raw: unknown, stamp: StampParams): ValidationOutcome {
   if (data.unsupported) {
     const reason = data.unsupportedReason ?? 'no_outfit';
     return { unsupported: true, reason };
+  }
+
+  // Supported path: confidence + insight are required here (they were optional
+  // at parse time only to let the unsupported branch through). A supported
+  // response that omits them is genuinely invalid.
+  if (data.confidence === undefined || data.insight === undefined) {
+    throw new ValidationError(
+      'ANALYSIS_INVALID_OUTPUT',
+      'Supported analysis is missing confidence or insight',
+    );
   }
 
   // --- garments: map categories, dedupe (category,label), bound size ---
