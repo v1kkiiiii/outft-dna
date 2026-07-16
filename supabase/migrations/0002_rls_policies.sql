@@ -158,3 +158,16 @@ alter table public.audit_events force row level security;
 -- No policies are created for the `anon` role on any table above. Because
 -- RLS is enabled + forced with no matching policy, anon requests are denied
 -- by default on every table (SELECT/INSERT/UPDATE/DELETE all fail closed).
+
+-- Added post-launch: authenticated owners must be able to enqueue an analysis
+-- job for their own outfit (the app inserts the job directly; there is no
+-- privileged endpoint in this build). Owner-scoped and outfit-ownership-checked.
+create policy "owner enqueues own analysis job"
+on public.analysis_jobs for insert to authenticated
+with check (
+  owner_id = auth.uid()
+  and exists (
+    select 1 from public.outfits o
+    where o.id = analysis_jobs.outfit_id and o.owner_id = auth.uid()
+  )
+);
