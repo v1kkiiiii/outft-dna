@@ -48,13 +48,16 @@ function base64ToArrayBuffer(b64: string): ArrayBuffer {
 }
 
 function newUuid(): string {
-  // crypto.randomUUID exists in Hermes (RN 0.81) and expo-crypto polyfills it.
   const c: any = (globalThis as any).crypto;
   if (c?.randomUUID) return c.randomUUID();
-  // RFC4122 v4 from getRandomValues; last resort inside a catch-all module.
+  // RFC4122 v4. Prefer secure RNG if present, else fall back to Math.random —
+  // this value is only an idempotency key + storage path, not a secret.
   const buf = new Uint8Array(16);
-  if (c?.getRandomValues) c.getRandomValues(buf);
-  else throw new Error('no secure RNG available');
+  if (c?.getRandomValues) {
+    c.getRandomValues(buf);
+  } else {
+    for (let i = 0; i < 16; i++) buf[i] = Math.floor(Math.random() * 256);
+  }
   buf[6] = (buf[6] & 0x0f) | 0x40;
   buf[8] = (buf[8] & 0x3f) | 0x80;
   const h = Array.from(buf, (x) => x.toString(16).padStart(2, '0')).join('');
