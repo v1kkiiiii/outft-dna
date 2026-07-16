@@ -173,11 +173,11 @@ export const RawAnalysisSchema = z.object({
     .array(
       z.object({
         category: z.string().min(1),
-        label: z.string().min(1).max(40),
+        label: z.preprocess((v) => (typeof v === 'string' ? v.trim().slice(0, 40) : v), z.string().min(1).max(40)),
         confidence: z.number(),
       }),
     )
-    .max(12)
+    .max(16)
     .optional()
     .default([]),
   colors: z
@@ -188,17 +188,26 @@ export const RawAnalysisSchema = z.object({
         weight: z.number(),
       }),
     )
-    .max(8)
+    .max(12)
     .optional()
     .default([]),
   styleTraits: z
     .array(
-      z.object({
-        label: z.string().min(1).max(30),
-        confidence: z.number(),
-      }),
+      z.preprocess(
+        // The model sometimes emits traits as bare strings ("relaxed") rather
+        // than {label, confidence} objects. Coerce instead of rejecting a
+        // perfectly good analysis (observed in production 2026-07-16).
+        (v) =>
+          typeof v === 'string'
+            ? { label: v.trim().slice(0, 30), confidence: 0.7 }
+            : v,
+        z.object({
+          label: z.string().min(1).max(30),
+          confidence: z.number(),
+        }),
+      ),
     )
-    .max(10)
+    .max(16)
     .optional()
     .default([]),
   styleScores: z.record(z.string(), z.number()).optional().default({}),
@@ -207,7 +216,10 @@ export const RawAnalysisSchema = z.object({
   // validation and is handled gracefully. The supported path below
   // requires them explicitly.
   confidence: z.number().optional(),
-  insight: z.string().min(1).max(140).optional(),
+  insight: z.preprocess(
+    (v) => (typeof v === 'string' ? v.trim().replace(/[\r\n]+/g, ' ').slice(0, 140) : v),
+    z.string().min(1).max(140),
+  ).optional(),
 });
 
 export type RawAnalysis = z.infer<typeof RawAnalysisSchema>;
@@ -328,7 +340,7 @@ export function validate(raw: unknown, stamp: StampParams): ValidationOutcome {
 
   // --- garments: map categories, dedupe (category,label), bound size ---
   const seenGarments = new Set<string>();
-  const garments = data.garments.map((g) => {
+  const garments = data.garments.flatMap((g) => {
     const category = resolveGarmentCategory(g.category);
     if (!category) {
       throw new ValidationError(
@@ -338,18 +350,18 @@ export function validate(raw: unknown, stamp: StampParams): ValidationOutcome {
     }
     const label = g.label.trim().toLowerCase();
     const key = `${category}::${label}`;
-    if (seenGarments.has(key)) {
-      throw new ValidationError('ANALYSIS_INVALID_OUTPUT', `Duplicate garment (${key})`);
-    }
+    if (seenGarments.has(key)) return [];
     seenGarments.add(key);
     if (!Number.isFinite(g.confidence) || g.confidence < 0 || g.confidence > 1) {
       throw new ValidationError('ANALYSIS_INVALID_OUTPUT', 'Garment confidence out of range');
     }
-    return { category, label, confidence: g.confidence };
+    return [{ category, label, confidence: g.confidence }];
   });
-  if (garments.length < 1 || garments.length > 8) {
-    throw new ValidationError('ANALYSIS_INVALID_OUTPUT', 'garments must have 1-8 items');
+  if (garments.length < 1) {
+    throw new ValidationError('ANALYSIS_INVALID_OUTPUT', 'garments must have at least 1 item');
   }
+  garments.sort((a, b) => b.confidence - a.confidence);
+  garments.splice(8);
 
   // --- colors: normalize hex to uppercase, bound size, weight sum tolerance ---
   const colors = data.colors.map((c) => {
@@ -361,22 +373,20 @@ export function validate(raw: unknown, stamp: StampParams): ValidationOutcome {
     }
     return { hex: c.hex.toUpperCase(), label: c.label.trim(), weight: c.weight };
   });
-  if (colors.length < 1 || colors.length > 6) {
-    throw new ValidationError('ANALYSIS_INVALID_OUTPUT', 'colors must have 1-6 items');
+  if (colors.length < 1) {
+    throw new ValidationError('ANALYSIS_INVALID_OUTPUT', 'colors must have at least 1 item');
   }
   const weightSum = colors.reduce((sum, c) => sum + c.weight, 0);
   if (weightSum > 1 + WEIGHT_SUM_TOLERANCE) {
     throw new ValidationError('ANALYSIS_INVALID_OUTPUT', 'colors weights exceed tolerance');
   }
-  const sortedColors = [...colors].sort((a, b) => b.weight - a.weight);
+  const sortedColors = [...colors].sort((a, b) => b.weight - a.weight).slice(0, 6);
 
   // --- styleTraits: dedupe, bound size, banned-language screen ---
   const seenTraits = new Set<string>();
-  const styleTraits = data.styleTraits.map((t) => {
+  const styleTraits = data.styleTraits.flatMap((t) => {
     const label = t.label.trim().toLowerCase();
-    if (seenTraits.has(label)) {
-      throw new ValidationError('ANALYSIS_INVALID_OUTPUT', `Duplicate style trait: "${label}"`);
-    }
+    if (seenTraits.has(label)) return [];
     seenTraits.add(label);
     if (containsBannedLanguage(label)) {
       throw new ValidationError(
@@ -387,11 +397,13 @@ export function validate(raw: unknown, stamp: StampParams): ValidationOutcome {
     if (!Number.isFinite(t.confidence) || t.confidence < 0 || t.confidence > 1) {
       throw new ValidationError('ANALYSIS_INVALID_OUTPUT', 'Style trait confidence out of range');
     }
-    return { label, confidence: t.confidence };
+    return [{ label, confidence: t.confidence }];
   });
-  if (styleTraits.length < 2 || styleTraits.length > 6) {
-    throw new ValidationError('ANALYSIS_INVALID_OUTPUT', 'styleTraits must have 2-6 items');
+  if (styleTraits.length < 2) {
+    throw new ValidationError('ANALYSIS_INVALID_OUTPUT', 'styleTraits must have at least 2 items');
   }
+  styleTraits.sort((a, b) => b.confidence - a.confidence);
+  styleTraits.splice(6);
 
   // --- styleScores: map aesthetic labels, sum duplicates, validate & renormalize ---
   const mapped = new Map<AestheticLabel, number>();
