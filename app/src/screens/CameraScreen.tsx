@@ -37,7 +37,7 @@ export default function CameraScreen() {
 
     // Real pipeline: upload → queue → poll worker. Falls back to the local
     // demo analysis on any failure (labeled, per PRD: no silent fake AI).
-    if (backendAvailable() && base64) {
+    if (backendAvailable()) {
       setStatusText('uploading…');
       const up = await uploadAndAnalyze({ uri, base64, mediaType: mt, category });
       if (up.ok) {
@@ -49,10 +49,14 @@ export default function CameraScreen() {
           setAnalyzing(false);
           return;
         }
+        showToast('analysis: ' + polled.error);
         console.warn('outft: analysis polling failed, falling back to demo:', polled.error);
       } else {
+        showToast('upload: ' + up.error);
         console.warn('outft: upload failed, falling back to demo:', up.error);
       }
+    } else {
+      showToast('backend not configured');
     }
 
     setStatusText('Reading your style DNA…');

@@ -1,6 +1,7 @@
 // Server pipeline for outfit capture: upload to Supabase storage, enqueue
 // analysis, and poll until the worker writes a style_analyses row.
 // Every function resolves to a result object — never throws.
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from './supabase';
 import { AnalysisResult } from '../data';
 
@@ -63,7 +64,20 @@ function newUuid(): string {
 export async function uploadAndAnalyze(input: UploadInput): Promise<UploadResult> {
   try {
     if (!supabase) return { ok: false, error: 'BACKEND_UNAVAILABLE' };
-    if (!input.base64) return { ok: false, error: 'NO_IMAGE_DATA' };
+
+    // Get the image bytes. Prefer the camera's base64; if it's missing
+    // (expo-camera sometimes omits it), read the file from disk instead.
+    let b64 = input.base64;
+    if (!b64) {
+      try {
+        b64 = await FileSystem.readAsStringAsync(input.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+      } catch (e) {
+        return { ok: false, error: 'NO_IMAGE_DATA: ' + (e instanceof Error ? e.message : String(e)) };
+      }
+    }
+    if (!b64) return { ok: false, error: 'NO_IMAGE_DATA' };
 
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     const session = sessionData?.session;
@@ -73,7 +87,7 @@ export async function uploadAndAnalyze(input: UploadInput): Promise<UploadResult
     const idempotencyKey = newUuid();
     const objectPath = `${userId}/${idempotencyKey}.jpg`;
 
-    const bytes = base64ToArrayBuffer(input.base64);
+    const bytes = base64ToArrayBuffer(b64);
     const { error: uploadError } = await supabase.storage
       .from('outfits')
       .upload(objectPath, bytes, { contentType: input.mediaType ?? 'image/jpeg', upsert: false });
