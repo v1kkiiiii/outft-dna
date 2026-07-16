@@ -20,8 +20,6 @@ export interface LatestOutfit {
   capturedAt: string;
 }
 
-export interface SentMessage { person: string; text: string; time: string }
-
 interface PersistedState {
   signedIn: boolean;
   guestMode: boolean;
@@ -32,14 +30,13 @@ interface PersistedState {
   avatarUri: string | null;
   coverUri: string | null;
   streak: number;
-  outfitCount: number; // captures made in-app, added to base 87
+  outfitCount: number; // captures made in-app
   latestOutfit: LatestOutfit | null;
   following: string[];
   isPremium: boolean;
   collections: Record<string, number>; // board name -> seed count from the demo
   savedPosts: Record<string, Post[]>; // board name -> posts the user actually saved
   captures: LatestOutfit[]; // every analyzed outfit, newest first
-  sentMessages: SentMessage[];
 }
 
 const DEFAULT_STATE: PersistedState = {
@@ -59,7 +56,6 @@ const DEFAULT_STATE: PersistedState = {
   collections: { 'Night out': 12, Work: 8, Gym: 5, Inspo: 24 },
   savedPosts: { 'Night out': [], Work: [], Gym: [], Inspo: [] },
   captures: [],
-  sentMessages: [],
 };
 
 const STORAGE_KEY = 'outft.app-state.v2';

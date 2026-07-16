@@ -38,16 +38,6 @@ export interface Person {
   postTags: string[];
 }
 
-export const DNA_DEFAULT = [
-  { label: 'Quiet luxury', pct: 41 },
-  { label: 'Old money', pct: 23 },
-  { label: 'Scandi', pct: 18 },
-  { label: 'Coastal', pct: 11 },
-  { label: 'Eclectic', pct: 7 },
-];
-
-export const SIGNATURE_COLORS = ['#FFFFFF', '#F0EBE3', '#1A1916', '#3A3830', '#8A7A68', '#C4B098', '#E8D8C4'];
-
 const CAPTION_POOL: { caption: string; tags: string[]; dna: string }[] = [
   { caption: 'Quiet layers for a loud day.', tags: ['minimal', 'daily'], dna: 'Structured neutrals holding a calm line.' },
   { caption: 'Night out. Leather, cargo, no hesitation.', tags: ['party', 'solo'], dna: 'Dark palette leaning utility.' },
@@ -102,12 +92,6 @@ export const BRAND_PICKS: Post[] = [
   { idx: 402, handle: 'Arket', ava: 'AR', color: '#B8C4C0', date: 'sponsored', caption: 'Everyday layers in stone.', tags: ['scandi', 'daily'], likes: 0, dna: 'Picked for your scandi lean and soft-layer echoes.', tone: '#BFC9C4', sponsor: { brand: 'Arket', shopUrl: 'https://arket.com', affiliateId: 'outft-arket' } },
 ];
 
-export const FEED_POSTS: Post[] = [
-  { idx: 200, handle: '@maya', ava: 'MY', color: avatarColors.maya, date: '22 June', caption: 'Night out. Leather, cargo, no hesitation.', tags: ['party', 'solo'], likes: 24, dna: 'Dark utility with a sharp line.', tone: photoTones[2] },
-  { idx: 201, handle: '@lila', ava: 'LI', color: avatarColors.lila, date: '20 June', caption: 'Soft structure for a late dinner.', tags: ['date', 'uni'], likes: 18, dna: 'Draped neutrals, warm underlight.', tone: photoTones[4] },
-  { idx: 202, handle: '@jade', ava: 'JD', color: avatarColors.jade, date: '19 June', caption: 'Work fit, softened.', tags: ['work', 'minimal'], likes: 15, dna: 'Tailoring with quiet texture.', tone: photoTones[0] },
-];
-
 export const PEOPLE: Person[] = [
   { key: 'maya', name: 'Maya Chen', ava: 'MY', color: avatarColors.maya, since: '02.01.25', fits: 64, echoes: 12, streak: 9, tags: ['UTILITY', 'DARK', 'PARTY'], colors: ['#1A1916', '#3A3830', '#5A5549', '#8A7A68', '#C4B098'], caption: 'Night out. Leather, cargo, no hesitation.', postTags: ['party', 'solo'] },
   { key: 'lila', name: 'Lila Moreau', ava: 'LI', color: avatarColors.lila, since: '14.02.25', fits: 51, echoes: 8, streak: 6, tags: ['SOFT', 'DRAPE', 'DATE'], colors: ['#F0EBE3', '#E8D8C4', '#C4B098', '#B4A898', '#8A7A68'], caption: 'Soft structure for a late dinner.', postTags: ['date', 'uni'] },
@@ -119,22 +103,6 @@ export const PEOPLE: Person[] = [
   { key: 'theo', name: 'Theo Marsh', ava: 'TH', color: avatarColors.theo, since: '17.02.25', fits: 44, echoes: 7, streak: 5, tags: ['DAILY', 'TONAL', 'EASY'], colors: ['#C4B098', '#B4A898', '#8A7A68', '#5A5549', '#3A3830'], caption: 'charcoal brown, again', postTags: ['daily', 'tonal'] },
   { key: 'jude', name: 'Jude Farrell', ava: 'JU', color: avatarColors.jude, since: '30.04.25', fits: 28, echoes: 2, streak: 3, tags: ['VINTAGE', 'TEXTURE', 'WEEKEND'], colors: ['#8A7A68', '#C4B098', '#D8CFC4', '#E8D8C4', '#F0EBE3'], caption: 'silk under wool', postTags: ['weekend', 'classic'] },
 ];
-
-export interface ChatMessage { from: 'me' | 'them'; text: string; time: string }
-
-export const CHATS: Record<string, ChatMessage[]> = {
-  lenav: [
-    { from: 'them', text: 'love that trace from today', time: '2m' },
-    { from: 'me', text: 'thank you!! the blazer is doing all the work', time: '1m' },
-  ],
-  maren: [
-    { from: 'them', text: "where's that coat from?", time: '1h' },
-  ],
-  noor: [
-    { from: 'them', text: 'we dress exactly the same lol', time: '3h' },
-    { from: 'me', text: '94% echo says you might be right', time: '2h' },
-  ],
-};
 
 export interface Comment { ava: string; color: string; name: string; text: string; time: string; liked?: boolean }
 
@@ -231,22 +199,6 @@ export function analyzeOutfit(imageUri: string): Promise<AnalysisResult> {
   const result = ANALYSIS_POOL[simpleHash(imageUri) % ANALYSIS_POOL.length];
   return new Promise((resolve) => setTimeout(() => resolve(result), 1800));
 }
-
-export const WRAPPED_SLIDES = [
-  { kicker: 'june wrapped', big: '26 fits', copy: 'strongest look was the 14 June blazer trace' },
-  { kicker: 'unexpected color', big: 'charcoal brown', copy: 'appeared 5 times after never showing in may', italic: true },
-  { kicker: 'closest twin', big: '@lenav', copy: '94% echo by palette, silhouette, and layering' },
-  { kicker: 'neglected aesthetic', big: 'romantic', copy: 'only one soft drape trace this month' },
-  { kicker: 'biggest DNA change', big: '+8% structured silhouette', copy: '+5% dark neutral palette' },
-];
-
-export const ACTIVITY_ITEMS = [
-  { icon: 'echo', text: '@theo echoed your trace', time: '5m', go: 'home' },
-  { icon: 'follow', text: '@jude started following your trace', time: '2h', go: 'twins' },
-  { icon: 'dna', text: 'DNA shifted +4% toward scandi', time: '1d', go: 'dna' },
-  { icon: 'badge', text: 'Gym Warrior badge unlocked', time: '2d', go: 'profile' },
-  { icon: 'streak', text: '14-day streak! keep going', time: 'today', go: 'home' },
-];
 
 // Builds the outbound affiliate link for a sponsored brand. In production this
 // wraps the retailer's own affiliate-network deep link (e.g. Rakuten, Awin,

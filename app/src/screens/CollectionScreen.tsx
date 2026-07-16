@@ -1,33 +1,53 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
-import { useApp } from '../state';
-import { POSTS } from '../data';
-import { CommentIcon, Header, Photo, SectionLabel, Tag } from '../ui';
+import { LatestOutfit, useApp } from '../state';
+import { Post } from '../data';
+import { Header, Photo } from '../ui';
 
-function nameHash(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h;
-}
+// Map board names to capture category keys so real captures land on the right board.
+const BOARD_CATEGORY: Record<string, string> = {
+  'Night out': 'night',
+  Work: 'work',
+  Gym: 'gym',
+};
 
 export default function CollectionScreen() {
-  const { navigate, goBack, params, collections, savedPosts } = useApp();
+  const { navigate, goBack, params, savedPosts, captures } = useApp();
   const name = params.collectionName ?? 'Night out';
-  const offset = nameHash(name) % 40;
-  const fillers = POSTS.slice(offset, offset + 3);
   const saved = savedPosts[name] ?? [];
-  const total = saved.length + (collections[name] ?? 0);
+  const boardCaptures = captures.filter(
+    (c) => (c.category || '').toLowerCase() === (BOARD_CATEGORY[name] ?? name.toLowerCase()),
+  );
+  const total = saved.length + boardCaptures.length;
+
+  const captureToPost = (c: LatestOutfit): Post => ({
+    idx: Number(c.id) || 0, handle: '@you', ava: 'EV', color: '#CDB89B',
+    date: new Date(c.capturedAt).toLocaleDateString(),
+    caption: c.caption ?? c.result.insight,
+    tags: c.result.tags.slice(0, 2), likes: 0, dna: c.result.insight,
+    tone: '#DFDFDF', photoUri: c.photoUri,
+    serverId: c.id,
+  } as Post & { serverId: string });
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.paper }}>
       <Header title={name} onBack={goBack} />
       <Text style={{ fontFamily: fonts.sans, fontSize: 10, color: colors.sand, textAlign: 'center', marginBottom: 10 }}>
-        {total} fits saved
+        {total} {total === 1 ? 'fit' : 'fits'} saved
       </Text>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        {saved.length > 0 ? (
+        {total > 0 ? (
           <View style={st.grid}>
+            {boardCaptures.map((c) => (
+              <Pressable
+                key={c.id}
+                onPress={() => navigate('postDetail', { post: captureToPost(c) })}
+                style={st.tile}
+              >
+                <Photo uri={c.photoUri} style={{ width: '100%', height: '100%' }} />
+              </Pressable>
+            ))}
             {saved.map((post) => (
               <Pressable
                 key={post.idx}
@@ -38,28 +58,16 @@ export default function CollectionScreen() {
               </Pressable>
             ))}
           </View>
-        ) : null}
-        <View style={{ paddingHorizontal: 22 }}>
-          {saved.length > 0 ? (
-            <SectionLabel style={{ marginTop: 24, marginBottom: 4 }}>FROM THE DEMO</SectionLabel>
-          ) : null}
-          {fillers.map((post) => (
-            <Pressable key={post.idx} onPress={() => navigate('postDetail', { post })} style={st.row}>
-              <Photo tone={post.tone} style={{ width: 90, height: 115, borderRadius: 6 }} />
-              <View style={{ flex: 1, gap: 6 }}>
-                <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: colors.ink }}>@you</Text>
-                <Text style={{ fontFamily: fonts.sans, fontSize: 10, color: colors.faint }}>{name} · 20 Jun</Text>
-                <View style={{ flexDirection: 'row', gap: 6 }}>
-                  {post.tags.slice(0, 2).map((t) => <Tag key={t} label={t} />)}
-                </View>
-                <View style={{ flexDirection: 'row', gap: 14, marginTop: 2 }}>
-                  <Text style={{ fontSize: 13, color: colors.faint }}>♡</Text>
-                  <CommentIcon size={14} color={colors.faint} />
-                </View>
-              </View>
-            </Pressable>
-          ))}
-        </View>
+        ) : (
+          <View style={{ paddingHorizontal: 22, paddingTop: 48, alignItems: 'center', gap: 8 }}>
+            <Text style={{ fontFamily: fonts.serifItalic, fontSize: 17, color: colors.ink, textAlign: 'center' }}>
+              This board is still blank.
+            </Text>
+            <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.muted, textAlign: 'center' }}>
+              Bookmark looks you love and they will gather here.
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -68,8 +76,4 @@ export default function CollectionScreen() {
 const st = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 1 },
   tile: { width: '33%', aspectRatio: 1, flexGrow: 1, maxWidth: '33.4%' },
-  row: {
-    flexDirection: 'row', gap: 16, alignItems: 'center', paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line,
-  },
 });

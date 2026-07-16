@@ -142,11 +142,31 @@ function mapAnalysisRow(row: { insight?: string | null; scores?: unknown; traits
   };
 }
 
+// Owner-scoped metadata update (RLS enforces ownership). Fail-soft: returns a
+// result object, never throws.
+export async function updateOutfitMeta(
+  outfitId: string,
+  meta: { caption?: string; category?: string },
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    if (!supabase) return { ok: false, error: 'BACKEND_UNAVAILABLE' };
+    const patch: Record<string, string> = {};
+    if (meta.caption !== undefined) patch.caption = meta.caption;
+    if (meta.category !== undefined) patch.category = meta.category;
+    if (Object.keys(patch).length === 0) return { ok: true };
+    const { error } = await supabase.from('outfits').update(patch).eq('id', outfitId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function pollAnalysis(
   outfitId: string,
-  opts: { timeoutMs?: number; intervalMs?: number } = {},
+  opts: { timeoutMs?: number; intervalMs?: number; onStatus?: (status: string) => void } = {},
 ): Promise<PollResult> {
-  const { timeoutMs = 90000, intervalMs = 2500 } = opts;
+  const { timeoutMs = 90000, intervalMs = 2500, onStatus } = opts;
   try {
     if (!supabase) return { ok: false, error: 'BACKEND_UNAVAILABLE', retryable: false };
     const deadline = Date.now() + timeoutMs;
@@ -158,6 +178,10 @@ export async function pollAnalysis(
         .eq('id', outfitId)
         .single();
       if (error) return { ok: false, error: `POLL_FAILED: ${error.message}`, retryable: true };
+
+      if (typeof outfit?.status === 'string' && onStatus) {
+        try { onStatus(outfit.status); } catch { /* fail-soft: status UI only */ }
+      }
 
       if (outfit?.status === 'ready') {
         const { data: analysis, error: aError } = await supabase

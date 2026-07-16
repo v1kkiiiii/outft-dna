@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   KeyboardAvoidingView,
   Platform,
@@ -12,7 +13,7 @@ import {
 import { colors, fonts } from '../theme';
 import { useApp } from '../state';
 import { backendAvailable } from '../lib/supabase';
-import { signInWithEmail, signUpWithEmail, upsertProfile } from '../lib/authApi';
+import { resetPassword, signInWithEmail, signUpWithEmail, upsertProfile } from '../lib/authApi';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const CREAM = colors.creamDark; // #F0EBE3
@@ -71,6 +72,17 @@ export default function SignInScreen() {
     name.trim().length > 0 &&
     (path === 'apple' || (emailValid && password.length >= 6));
 
+  const onForgotPassword = async () => {
+    if (busy) return;
+    if (!emailValid) {
+      showToast('enter your email first');
+      return;
+    }
+    const r = await resetPassword(email.trim());
+    if (r.ok) showToast('reset link sent (check your email)');
+    else showToast("couldn't send reset link — try again");
+  };
+
   const welcome = (displayName: string) => {
     const first = displayName.split(/\s+/)[0].toLowerCase();
     showToast('welcome, ' + first);
@@ -121,12 +133,12 @@ export default function SignInScreen() {
         if (signup.ok) {
           const prof = await upsertProfile(username, displayName);
           if (!prof.ok && prof.error === 'USERNAME_TAKEN') {
-            setAuthError('that username is taken — try a different name');
+            setAuthError('that username is taken');
             return;
           }
           res = signup;
         } else if (/already|registered|exists/i.test(signup.error ?? '')) {
-          setAuthError('wrong password for this email');
+          setAuthError('wrong password — try again');
           return;
         } else if (/network|fetch/i.test(signup.error ?? '') || signup.error === 'BACKEND_UNAVAILABLE') {
           finishLocal(true);
@@ -226,6 +238,9 @@ export default function SignInScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
+                <Pressable onPress={onForgotPassword} hitSlop={8} style={s.forgot}>
+                  <Text style={s.forgotText}>forgot password?</Text>
+                </Pressable>
               </View>
             )}
 
@@ -247,7 +262,14 @@ export default function SignInScreen() {
               onPress={finish}
               disabled={!canContinue}
             >
-              <Text style={s.pillFilledText}>{busy ? 'One moment…' : 'Continue'}</Text>
+              {busy ? (
+                <View style={s.busyRow}>
+                  <ActivityIndicator size="small" color={colors.ink} />
+                  <Text style={s.pillFilledText}>One moment…</Text>
+                </View>
+              ) : (
+                <Text style={s.pillFilledText}>Continue</Text>
+              )}
             </Pressable>
           </View>
         )}
@@ -310,4 +332,10 @@ const s = StyleSheet.create({
     color: colors.error, marginTop: 6,
   },
   continueBtn: { marginTop: 12 },
+  busyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  forgot: { alignSelf: 'flex-start', marginTop: 10 },
+  forgotText: {
+    fontFamily: fonts.sans, fontSize: 10, letterSpacing: 1,
+    color: 'rgba(240,235,227,0.55)', textTransform: 'uppercase',
+  },
 });

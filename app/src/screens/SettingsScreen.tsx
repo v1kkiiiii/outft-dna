@@ -4,9 +4,11 @@ import { colors, fonts } from '../theme';
 import { useApp } from '../state';
 import { Header, SectionLabel } from '../ui';
 import { deleteAccount, requestExport } from '../lib/accountApi';
+import Constants from 'expo-constants';
 
 export default function SettingsScreen() {
-  const { goBack, signOut, showToast, authMode } = useApp();
+  const { goBack, signOut, showToast, authMode, email } = useApp();
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
   const [busy, setBusy] = useState(false);
 
   const onExport = async () => {
@@ -50,9 +52,19 @@ export default function SettingsScreen() {
       <Header title="settings" onBack={goBack} />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 18, paddingBottom: 48 }}>
         <SectionLabel>ACCOUNT</SectionLabel>
+        <View style={st.accountRow}>
+          <Text style={st.accountLabel}>SIGNED IN AS</Text>
+          <Text style={st.accountValue} numberOfLines={1}>
+            {email ? email : 'guest mode'}
+          </Text>
+        </View>
         <Row label="Sign out" onPress={signOut} />
         <Row label="Request data export" onPress={onExport} disabled={busy} />
         <Row label="Delete account" onPress={onDelete} disabled={busy} danger />
+        <View style={st.accountRow}>
+          <Text style={st.accountLabel}>APP VERSION</Text>
+          <Text style={st.accountValue}>{appVersion}</Text>
+        </View>
         <Text style={st.footnote}>
           Deleting your account removes your outfits, analyses, and Style DNA. Exports arrive by email.
         </Text>
@@ -78,5 +90,16 @@ const st = StyleSheet.create({
     paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line,
   },
   rowText: { fontFamily: fonts.serif, fontSize: 17, color: colors.ink },
+  accountRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line,
+  },
+  accountLabel: {
+    fontFamily: fonts.sans, fontSize: 9, letterSpacing: 2, color: colors.sand,
+  },
+  accountValue: {
+    fontFamily: fonts.serif, fontSize: 13, color: colors.ink, opacity: 0.7,
+    maxWidth: '65%',
+  },
   footnote: { fontFamily: fonts.sans, fontSize: 10, color: colors.sand, marginTop: 18, lineHeight: 15 },
 });

@@ -1,72 +1,101 @@
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
-import { ECHO_POSTS, FEED_POSTS, POSTS, commentsFor, Post } from '../data';
-import { useApp } from '../state';
-import { Avatar, Photo, Rule, SectionLabel } from '../ui';
-import { SaveSheet } from '../ui-save-sheet';
+import { Post } from '../data';
+import { LatestOutfit, useApp } from '../state';
+import { Photo, SectionLabel } from '../ui';
+import { fetchMyOutfits } from '../lib/historyApi';
 
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-function FeedArticle({ post, idx }: { post: Post; idx: number }) {
-  const { navigate, isPostSaved, unsavePost, showToast } = useApp();
-  const [liked, setLiked] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const savedIn = isPostSaved(post);
-  const onBookmark = () => {
-    if (savedIn) {
-      unsavePost(post, savedIn);
-      showToast('removed from ' + savedIn.toLowerCase());
-    } else {
-      setSheetOpen(true);
-    }
+// Local calendar-day key (YYYY-MM-DD) for a date.
+function dayKey(d: Date): string {
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function captureToPost(c: LatestOutfit): Post {
+  return {
+    idx: Number(c.id) || 0,
+    handle: '@you',
+    ava: 'EV',
+    color: '#CDB89B',
+    date: new Date(c.capturedAt).toLocaleDateString(),
+    caption: c.caption ?? c.result.insight,
+    tags: c.result.tags.slice(0, 2),
+    likes: 0,
+    dna: c.result.insight,
+    tone: '#DFDFDF',
+    photoUri: c.photoUri,
   };
-  const key = 'feed-' + idx;
-  const preview = commentsFor(key).slice(0, 2);
-  const goComments = () => navigate('comments', { commentsKey: key, post });
-  const name = post.handle.replace('@', '');
-  const openProfile = () => navigate('otherProfile', { personKey: name });
-  return (
-    <View>
-      <Pressable style={s.artHead} onPress={openProfile}>
-        <Avatar initials={post.ava} color={post.color} size={32} />
-        <Text style={s.artName}>{name}</Text>
-        <Text style={s.artDate}>{post.date}</Text>
-      </Pressable>
-      <Photo tone={post.tone} style={s.artPhoto} />
-      <Text style={s.artCaption}>{post.caption}</Text>
-      <View style={s.artActions}>
-        <Pressable onPress={() => setLiked(!liked)} hitSlop={8}>
-          <Text style={{ fontSize: 18, color: liked ? colors.likeRed : colors.ink }}>{liked ? '♥' : '♡'}</Text>
-        </Pressable>
-        <Pressable onPress={onBookmark} hitSlop={8}>
-          <Text style={{ fontSize: 16, color: colors.ink }}>{savedIn ? '▣' : '▢'}</Text>
-        </Pressable>
-        <Pressable onPress={goComments} hitSlop={8}>
-          <Text style={s.artMeta}>{preview.length} comments</Text>
-        </Pressable>
-      </View>
-      <SaveSheet post={post} visible={sheetOpen} onClose={() => setSheetOpen(false)} />
-      {preview.map((c, i) => (
-        <Text key={i} style={s.previewComment}>
-          <Text style={{ fontFamily: fonts.sansMedium }}>{c.name}</Text>
-          {'  '}{c.text}
-        </Text>
-      ))}
-      <Pressable onPress={goComments} hitSlop={6}>
-        <Text style={s.viewAll}>View all comments</Text>
-      </Pressable>
-    </View>
-  );
 }
 
 export default function HomeScreen() {
-  const { navigate, profileName, streak, latestOutfit, captures } = useApp();
-  const hasTrace = !!latestOutfit || captures.length > 0;
-  const todayPhotoUri = latestOutfit?.photoUri ?? captures[0]?.photoUri;
+  const { navigate, profileName, latestOutfit, captures } = useApp();
   const firstName = profileName.split(' ')[0];
-  const insight = latestOutfit?.result.insight
-    ?? 'This week, your style has been tracing quiet confidence. 5 people echoed your fits.';
+  const [serverItems, setServerItems] = useState<LatestOutfit[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    fetchMyOutfits()
+      .then((r) => { if (alive && r.ok) setServerItems(r.items); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  // Merge local + server captures, deduped by id, newest first.
+  const allCaptures = useMemo(() => {
+    const localIds = new Set(captures.map((c) => c.id));
+    const merged = [...captures, ...serverItems.filter((i) => !localIds.has(i.id))];
+    return merged.sort((a, b) => (b.capturedAt ?? '').localeCompare(a.capturedAt ?? ''));
+  }, [captures, serverItems]);
+
+  const captureDays = useMemo(() => {
+    const days = new Set<string>();
+    for (const c of allCaptures) {
+      const d = new Date(c.capturedAt);
+      if (!isNaN(d.getTime())) days.add(dayKey(d));
+    }
+    return days;
+  }, [allCaptures]);
+
+  // Streak: consecutive days ending today (or yesterday) with at least one capture.
+  const streak = useMemo(() => {
+    const cursor = new Date();
+    if (!captureDays.has(dayKey(cursor))) cursor.setDate(cursor.getDate() - 1);
+    let n = 0;
+    while (captureDays.has(dayKey(cursor))) {
+      n += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return n;
+  }, [captureDays]);
+
+  // Current week, Monday through Sunday.
+  const week = useMemo(() => {
+    const today = new Date();
+    const todayKey = dayKey(today);
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+    return DAYS.map((label, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const key = dayKey(d);
+      return { label, filled: captureDays.has(key), isToday: key === todayKey };
+    });
+  }, [captureDays]);
+
+  const todayCapture = allCaptures.find((c) => {
+    const d = new Date(c.capturedAt);
+    return !isNaN(d.getTime()) && dayKey(d) === dayKey(new Date());
+  });
+  const newestCapture = todayCapture ?? allCaptures[0];
+  const insight = latestOutfit?.result.insight;
+
+  const inviteFriends = () => {
+    Share.share({ message: 'tracing my style DNA on OUTFT — join me' }).catch(() => {});
+  };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.paper }} contentContainerStyle={s.content}>
@@ -93,28 +122,36 @@ export default function HomeScreen() {
           <Text style={s.streakNum}>{streak}</Text>
           <View style={{ flex: 1 }}>
             <Text style={s.streakLabel}>Day streak</Text>
-            <Text style={s.streakSub}>capture today to keep it alive</Text>
+            <Text style={s.streakSub}>
+              {allCaptures.length === 0
+                ? 'capture your first trace to start a streak'
+                : 'capture today to keep it alive'}
+            </Text>
           </View>
         </View>
         <View style={s.daysRow}>
-          {DAYS.map((d, i) => {
-            if (i < 4) {
+          {week.map((d, i) => {
+            if (d.isToday) {
               return (
-                <View key={i} style={[s.dayCircle, s.dayFilled]}>
-                  <Text style={[s.dayText, { color: colors.paper }]}>{d}</Text>
-                </View>
+                <Pressable
+                  key={i}
+                  style={[s.dayCircle, s.dayToday, d.filled && s.dayFilled]}
+                  onPress={() => navigate('camera')}
+                >
+                  <Text style={[s.dayText, d.filled && { color: colors.paper }]}>{d.label}</Text>
+                </Pressable>
               );
             }
-            if (i === 4) {
+            if (d.filled) {
               return (
-                <Pressable key={i} style={[s.dayCircle, s.dayToday]} onPress={() => navigate('camera')}>
-                  <Text style={s.dayText}>{d}</Text>
-                </Pressable>
+                <View key={i} style={[s.dayCircle, s.dayFilled]}>
+                  <Text style={[s.dayText, { color: colors.paper }]}>{d.label}</Text>
+                </View>
               );
             }
             return (
               <View key={i} style={[s.dayCircle, s.dayFuture]}>
-                <Text style={[s.dayText, { color: colors.faint }]}>{d}</Text>
+                <Text style={[s.dayText, { color: colors.faint }]}>{d.label}</Text>
               </View>
             );
           })}
@@ -122,12 +159,17 @@ export default function HomeScreen() {
       </Pressable>
 
       {/* Today's trace */}
-      <SectionLabel style={{ marginTop: 30, marginBottom: 12 }}>TODAY'S TRACE</SectionLabel>
-      {hasTrace ? (
-        <Pressable onPress={() => navigate('postDetail', { post: POSTS[0] })}>
-          <Photo uri={todayPhotoUri} tone="#DFDFDF" style={s.todayPhoto} />
+      <SectionLabel style={{ marginTop: 30, marginBottom: 12 }}>
+        {todayCapture || !newestCapture ? "TODAY'S TRACE" : 'LATEST TRACE'}
+      </SectionLabel>
+      {newestCapture ? (
+        <Pressable onPress={() => navigate('postDetail', { post: captureToPost(newestCapture) })}>
+          <Photo uri={newestCapture.photoUri} tone="#DFDFDF" style={s.todayPhoto} />
           <View style={s.todayBar}>
-            <Text style={s.todayBarText}>Today's trace · 22 June</Text>
+            <Text style={s.todayBarText}>
+              {(todayCapture ? "Today's trace · " : 'Latest trace · ')
+                + new Date(newestCapture.capturedAt).toLocaleDateString()}
+            </Text>
             <Pressable onPress={() => navigate('camera')} hitSlop={10}>
               <Text style={{ fontSize: 14, color: colors.ink }}>✎</Text>
             </Pressable>
@@ -142,10 +184,12 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Insight card */}
-      <View style={s.insightCard}>
-        <Text style={s.insightText}>{insight}</Text>
-      </View>
+      {/* Insight card — only when a real insight exists */}
+      {insight ? (
+        <View style={s.insightCard}>
+          <Text style={s.insightText}>{insight}</Text>
+        </View>
+      ) : null}
 
       {/* Brand spotlight — one sponsored slot per style lane. Demo placeholder
           only: no real ad-serving or user-data targeting is wired up here. */}
@@ -155,17 +199,16 @@ export default function HomeScreen() {
         <Text style={s.sponsorCopy}>Shop the pieces closest to your trace.</Text>
       </View>
 
-      {/* Friends' traces */}
-      <View style={s.sectionRow}>
-        <Text style={s.sectionTitle}>Friends' traces</Text>
-        <Text style={s.sectionDate}>22 June</Text>
+      {/* Friends */}
+      <SectionLabel style={{ marginTop: 32, marginBottom: 12 }}>FRIENDS</SectionLabel>
+      <View style={s.friendsCard}>
+        <Text style={s.friendsCopy}>
+          OUTFT is better with friends. Invite yours — their traces will appear here.
+        </Text>
+        <Pressable style={s.invitePill} onPress={inviteFriends}>
+          <Text style={s.invitePillText}>INVITE FRIENDS</Text>
+        </Pressable>
       </View>
-      {FEED_POSTS.slice(0, 2).map((post, idx) => (
-        <View key={post.idx}>
-          <FeedArticle post={post} idx={idx} />
-          {idx === 0 ? <Rule style={{ marginVertical: 24 }} /> : null}
-        </View>
-      ))}
     </ScrollView>
   );
 }
@@ -204,17 +247,8 @@ const s = StyleSheet.create({
     paddingVertical: 8, paddingHorizontal: 16,
   },
   emptyTracePillText: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 1.5, color: colors.ink },
-  sectionRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 32, marginBottom: 12 },
-  sectionTitle: { fontFamily: fonts.serif, fontSize: 19, color: colors.ink },
-  sectionAside: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 2, color: colors.faint },
-  sectionDate: { fontFamily: fonts.sans, fontSize: 11, color: colors.faint },
-  echoPhoto: { width: 72, height: 90, borderRadius: 8 },
-  echoBadge: {
-    position: 'absolute', bottom: 5, left: 5, backgroundColor: colors.paper,
-    borderRadius: 999, paddingVertical: 2, paddingHorizontal: 6,
-  },
-  echoBadgeText: { fontFamily: fonts.sans, fontSize: 8, color: colors.ink },
   insightCard: { backgroundColor: colors.cream, borderRadius: 12, padding: 18, marginTop: 24 },
+  insightText: { fontFamily: fonts.serifItalic, fontSize: 15, lineHeight: 22, color: colors.ink },
   sponsorCard: {
     borderWidth: 1, borderColor: colors.tagBorder, borderRadius: 12,
     padding: 16, marginTop: 14,
@@ -222,21 +256,17 @@ const s = StyleSheet.create({
   sponsorLabel: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 1.5, color: colors.sand, marginBottom: 6 },
   sponsorBrand: { fontFamily: fonts.serif, fontSize: 18, color: colors.ink },
   sponsorCopy: { fontFamily: fonts.sans, fontSize: 12, color: colors.taupe, marginTop: 3 },
-  insightText: { fontFamily: fonts.serifItalic, fontSize: 15, lineHeight: 22, color: colors.ink },
-  wearCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: colors.line,
-    borderRadius: 12, padding: 14, marginTop: 14,
+  friendsCard: {
+    borderWidth: 1, borderColor: colors.line, borderRadius: 12,
+    paddingVertical: 28, paddingHorizontal: 22, alignItems: 'center',
   },
-  wearKicker: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 2, color: colors.faint },
-  wearTitle: { fontFamily: fonts.serif, fontSize: 18, color: colors.ink, marginTop: 3 },
-  wearCopy: { fontFamily: fonts.sans, fontSize: 11, color: colors.sand, marginTop: 2 },
-  artHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  artName: { fontFamily: fonts.serif, fontSize: 20, color: colors.ink, textTransform: 'lowercase', flex: 1 },
-  artDate: { fontFamily: fonts.sans, fontSize: 11, color: colors.faint },
-  artPhoto: { width: '86%', aspectRatio: 3 / 4, borderRadius: 4, marginTop: 12 },
-  artCaption: { fontFamily: fonts.serifItalic, fontSize: 15, color: colors.ink, marginTop: 10 },
-  artActions: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 10 },
-  artMeta: { fontFamily: fonts.sans, fontSize: 11, color: colors.sand },
-  previewComment: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted, marginTop: 6 },
-  viewAll: { fontFamily: fonts.sans, fontSize: 11, color: colors.faint, marginTop: 8 },
+  friendsCopy: {
+    fontFamily: fonts.serifItalic, fontSize: 16, lineHeight: 24,
+    color: colors.ink, textAlign: 'center',
+  },
+  invitePill: {
+    marginTop: 18, borderWidth: 1, borderColor: colors.ink, borderRadius: 999,
+    paddingVertical: 9, paddingHorizontal: 18,
+  },
+  invitePillText: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 1.5, color: colors.ink },
 });

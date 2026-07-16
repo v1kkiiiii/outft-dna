@@ -1,22 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
-import { ACTIVITY_ITEMS } from '../data';
 import { useApp } from '../state';
 import { Header, SectionLabel } from '../ui';
 
-const GLYPHS: Record<string, string> = {
-  echo: '◎', follow: '+', dna: '◇', badge: '✦', streak: '▲',
-};
-
 export default function ActivityScreen() {
-  const { navigate, showToast } = useApp();
-  const [voted, setVoted] = useState(false);
-
-  const vote = () => {
-    showToast('circle vote saved');
-    setVoted(true);
-  };
+  const { navigate } = useApp();
 
   return (
     <View style={s.root}>
@@ -30,37 +19,9 @@ export default function ActivityScreen() {
           </Pressable>
         </View>
 
-        <View style={s.voteCard}>
-          <SectionLabel>PRIVATE CIRCLE: DINNER LOOKS</SectionLabel>
-          <Text style={s.voteCopy}>
-            Maya, Noor, and Lila are voting on your two saved options for tonight.
-          </Text>
-          {voted ? (
-            <Text style={s.votedText}>your circle picked this look</Text>
-          ) : (
-            <View style={{ gap: 10 }}>
-              <Pressable style={s.voteBtn} onPress={vote}>
-                <Text style={s.voteBtnText}>Look A — 67% chose structured black</Text>
-              </Pressable>
-              <Pressable style={s.voteBtn} onPress={vote}>
-                <Text style={s.voteBtnText}>Look B — 33% chose silk neutral</Text>
-              </Pressable>
-            </View>
-          )}
-        </View>
-
-        <View style={{ paddingHorizontal: 22 }}>
-          {ACTIVITY_ITEMS.map((item, i) => (
-            <Pressable key={i} style={s.row} onPress={() => navigate(item.go as any)}>
-              <View style={s.glyphCircle}>
-                <Text style={[s.glyph, item.icon === 'streak' && { color: colors.flame }]}>
-                  {GLYPHS[item.icon] ?? '◎'}
-                </Text>
-              </View>
-              <Text style={s.rowText}>{item.text}</Text>
-              <Text style={s.rowTime}>{item.time}</Text>
-            </Pressable>
-          ))}
+        <View style={s.section}>
+          <SectionLabel>ACTIVITY</SectionLabel>
+          <Text style={s.emptyCopy}>Echoes, follows, and streak alerts will land here.</Text>
         </View>
       </ScrollView>
     </View>
@@ -80,26 +41,6 @@ const s = StyleSheet.create({
     borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14, marginTop: 12,
   },
   learnText: { fontFamily: fonts.sans, fontSize: 10, letterSpacing: 1.5, color: colors.cream, textTransform: 'uppercase' },
-  voteCard: {
-    borderWidth: 1, borderColor: colors.line, borderRadius: 12, padding: 16,
-    marginHorizontal: 22, marginBottom: 14, gap: 10,
-  },
-  voteCopy: { fontFamily: fonts.serifItalic, fontSize: 14, color: colors.muted },
-  voteBtn: {
-    borderWidth: 1, borderColor: colors.ink, borderRadius: 999,
-    paddingVertical: 11, alignItems: 'center',
-  },
-  voteBtnText: { fontFamily: fonts.sans, fontSize: 11, color: colors.ink },
-  votedText: { fontFamily: fonts.serifItalic, fontSize: 14, color: colors.ink, textAlign: 'center', paddingVertical: 8 },
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line,
-  },
-  glyphCircle: {
-    width: 34, height: 34, borderRadius: 17, backgroundColor: '#F7F7F7',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  glyph: { fontSize: 14, color: colors.ink },
-  rowText: { flex: 1, fontFamily: fonts.serif, fontSize: 14, color: colors.ink },
-  rowTime: { fontFamily: fonts.sans, fontSize: 10, color: colors.sand },
+  section: { paddingHorizontal: 22, paddingTop: 14, gap: 10 },
+  emptyCopy: { fontFamily: fonts.serifItalic, fontSize: 15, color: colors.muted, lineHeight: 22 },
 });

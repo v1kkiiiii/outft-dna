@@ -9,7 +9,22 @@ const LIGHT = ['#FFFFFF', '#F0EBE3', '#E8D8C4', '#D8CFC4', '#E8E8E8'];
 
 export default function OtherProfileScreen() {
   const { navigate, goBack, params, following, toggleFollow, showToast } = useApp();
-  const person = PEOPLE.find((p) => p.key === params.personKey) ?? PEOPLE[0];
+  const person = PEOPLE.find((p) => p.key === params.personKey);
+
+  if (!person) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 }}>
+        <Text style={{ fontFamily: fonts.serif, fontSize: 26, color: colors.ink, textAlign: 'center' }}>Profile not found</Text>
+        <Text style={{ fontFamily: fonts.sans, fontSize: 12, color: colors.faint, textAlign: 'center', marginTop: 10, lineHeight: 18 }}>
+          This profile isn't available yet.
+        </Text>
+        <Pressable onPress={goBack} style={[st.pill, { marginTop: 24 }]}>
+          <Text style={st.pillText}>back</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   const key = person.key;
   const isFollowing = following.includes(key);
   // Derive a rough aesthetic breakdown from this person's own tags so their

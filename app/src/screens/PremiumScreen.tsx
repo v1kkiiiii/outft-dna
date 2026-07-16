@@ -14,7 +14,7 @@ const FEATURES = [
 ];
 
 export default function PremiumScreen() {
-  const { navigate, isPremium, update, showToast } = useApp();
+  const { navigate, showToast } = useApp();
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink, paddingHorizontal: 22 }}>
@@ -48,17 +48,13 @@ export default function PremiumScreen() {
 
       <View style={{ paddingBottom: 48 }}>
         <Pressable
-          disabled={isPremium}
-          onPress={() => {
-            update({ isPremium: true });
-            showToast('premium active');
-          }}
-          style={[s.cta, isPremium && { opacity: 0.5 }]}
+          onPress={() => showToast("you're on the list")}
+          style={s.cta}
         >
-          <Text style={s.ctaText}>{isPremium ? 'premium active' : 'start free trial'}</Text>
+          <Text style={s.ctaText}>JOIN THE WAITLIST</Text>
         </Pressable>
         <Text style={{ fontFamily: fonts.sans, fontSize: 10, color: colors.faint, textAlign: 'center', marginTop: 12 }}>
-          $8.99/mo · cancel anytime
+          $8.99/mo · Launching soon
         </Text>
       </View>
     </View>

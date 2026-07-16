@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
-import { affiliateUrl, BRAND_PICKS, ECHO_POSTS, POSTS } from '../data';
-import { useApp } from '../state';
+import { affiliateUrl, BRAND_PICKS, ECHO_POSTS, Post, POSTS } from '../data';
+import { LatestOutfit, useApp } from '../state';
 import { backendAvailable } from '../lib/supabase';
-import { deleteOutfit } from '../lib/historyApi';
+import { deleteOutfit, fetchMyOutfitById } from '../lib/historyApi';
 import { Avatar, CommentIcon, Header, Photo, Rule, SectionLabel, Tag } from '../ui';
 import { SaveSheet } from '../ui-save-sheet';
 
@@ -12,8 +12,27 @@ export default function PostDetailScreen() {
   const { params, goBack, navigate, showToast, isPostSaved, unsavePost, captures, update } = useApp();
   const post = params.post ?? POSTS[0];
   const isMine = post.handle === '@you';
+  const serverId = (post as { serverId?: string }).serverId;
 
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  // Authoritative refresh for the user's own server-backed posts: if params
+  // carry a serverId, re-fetch the capture so insight/tags reflect the server.
+  // Fail-soft — anything missing keeps what was passed in params.
+  const [fresh, setFresh] = useState<LatestOutfit | null>(null);
+  useEffect(() => {
+    if (!isMine || !serverId || !UUID_RE.test(serverId) || !backendAvailable()) return;
+    let cancelled = false;
+    fetchMyOutfitById(serverId).then((r) => {
+      if (!cancelled && r) setFresh(r);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverId, isMine]);
+
+  const shownCaption = fresh ? (fresh.caption ?? fresh.result.insight ?? post.caption) : post.caption;
+  const shownDna = fresh?.result.insight || post.dna;
+  const shownTags = fresh && fresh.result.tags.length > 0 ? fresh.result.tags.slice(0, 2) : post.tags;
 
   const confirmDelete = () => {
     Alert.alert(
@@ -58,6 +77,16 @@ export default function PostDetailScreen() {
     }
   };
 
+  // Map one of the user's real captures to the Post shape for a thumbnail tile.
+  const captureToPost = (c: LatestOutfit): Post => ({
+    idx: Number(c.id) || 0, handle: '@you', ava: 'EV', color: '#CDB89B',
+    date: new Date(c.capturedAt).toLocaleDateString(),
+    caption: c.caption ?? c.result.insight,
+    tags: c.result.tags.slice(0, 2), likes: 0, dna: c.result.insight,
+    tone: '#DFDFDF', photoUri: c.photoUri,
+    serverId: c.id,
+  } as Post & { serverId: string });
+
   const openProfile = () => {
     if (post.handle !== '@you') {
       navigate('otherProfile', { personKey: post.handle.replace('@', '') });
@@ -83,9 +112,9 @@ export default function PostDetailScreen() {
             <Text style={s.handle}>{post.handle}</Text>
             <Text style={s.date}>{post.date}</Text>
           </Pressable>
-          <Text style={s.caption}>{post.caption}</Text>
+          <Text style={s.caption}>{shownCaption}</Text>
           <View style={s.tagsRow}>
-            {post.tags.map((t, i) => <Tag key={t} label={t} filled={i > 0} />)}
+            {shownTags.map((t, i) => <Tag key={t} label={t} filled={i > 0} />)}
           </View>
           <Rule style={{ marginVertical: 16 }} />
           <View style={s.actionsRow}>
@@ -99,7 +128,9 @@ export default function PostDetailScreen() {
               <Text style={{ fontSize: 18, color: colors.ink }}>{savedIn ? '▣' : '▢'}</Text>
             </Pressable>
           </View>
-          <Text style={s.likes}>{post.likes + (liked ? 1 : 0)} likes</Text>
+          {/* Own posts have no fake engagement numbers — the heart above is the
+              only (session-local) like state. Demo posts keep their counts. */}
+          {!isMine && <Text style={s.likes}>{post.likes + (liked ? 1 : 0)} likes</Text>}
 
           <Pressable
             style={s.findSimilarBtn}
@@ -110,7 +141,7 @@ export default function PostDetailScreen() {
 
           <View style={s.dnaCard}>
             <SectionLabel>OUTFIT DNA</SectionLabel>
-            <Text style={s.dnaText}>{post.dna}</Text>
+            <Text style={s.dnaText}>{shownDna}</Text>
           </View>
 
           {post.sponsor && (
@@ -125,16 +156,31 @@ export default function PostDetailScreen() {
             </View>
           )}
 
-          {/* Echoes + a sponsored brand pick matched to this look */}
+          {/* Echoes + a sponsored brand pick matched to this look.
+              Own posts show the user's real other captures (no fake echoes);
+              demo/sponsored posts keep the demo echo thumbnails. */}
           <SectionLabel style={{ marginTop: 24 }}>ECHOES + PICKS FOR THIS LOOK</SectionLabel>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-            {[ECHO_POSTS[(post.idx + 1) % ECHO_POSTS.length], ECHO_POSTS[(post.idx + 2) % ECHO_POSTS.length], BRAND_PICKS[post.idx % BRAND_PICKS.length]].map((p) => (
+            {(isMine
+              ? [
+                  ...captures
+                    .filter((c) => c.id !== serverId && (!post.photoUri || c.photoUri !== post.photoUri))
+                    .slice(0, 2)
+                    .map(captureToPost),
+                  BRAND_PICKS[Math.abs(post.idx) % BRAND_PICKS.length],
+                ]
+              : [
+                  ECHO_POSTS[(post.idx + 1) % ECHO_POSTS.length],
+                  ECHO_POSTS[(post.idx + 2) % ECHO_POSTS.length],
+                  BRAND_PICKS[post.idx % BRAND_PICKS.length],
+                ]
+            ).map((p, i) => (
               <Pressable
-                key={p.idx}
+                key={`${p.idx}-${i}`}
                 style={{ flex: 1 }}
                 onPress={() => navigate('postDetail', { post: p })}
               >
-                <Photo tone={p.tone} style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 8 }} />
+                <Photo uri={p.photoUri} tone={p.tone} style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 8 }} />
                 <Text style={s.pickLabel} numberOfLines={1}>
                   {p.sponsor ? `${p.handle} · SPONSORED` : p.handle}
                 </Text>

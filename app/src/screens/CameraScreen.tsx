@@ -6,11 +6,28 @@ import { colors, fonts } from '../theme';
 import { AnalysisResult, CATEGORIES } from '../data';
 import { analyzeOutfitReal } from '../analyze';
 import { backendAvailable } from '../lib/supabase';
-import { uploadAndAnalyze, pollAnalysis } from '../lib/outfitApi';
+import { uploadAndAnalyze, pollAnalysis, updateOutfitMeta } from '../lib/outfitApi';
 import { useApp, LatestOutfit } from '../state';
 import { Photo, PillButton, Tag } from '../ui';
 
 const BAR_WIDTHS = [1, 3, 2, 1, 2, 3, 1, 1, 2, 3, 2, 1, 3, 1, 2, 2, 3, 1, 2, 1, 3, 2, 1, 3, 1, 2, 3, 1, 2, 2];
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+function receiptStamp(d: Date) {
+  const h = d.getHours();
+  const daypart = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
+  return {
+    date: `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`,
+    time: `${String(h).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+    daypart,
+  };
+}
+
+// Short toast-friendly code from a pipeline error string (e.g. 'UPLOAD_FAILED: …').
+function shortCode(err: string) {
+  return err.split(':')[0].trim();
+}
 
 export default function CameraScreen() {
   const { navigate, update, showToast, outfitCount, captures } = useApp();
@@ -24,45 +41,85 @@ export default function CameraScreen() {
   const [brand, setBrand] = useState('');
   const [caption, setCaption] = useState('');
   const [facing, setFacing] = useState<'back' | 'front'>('back');
+  const [outfitId, setOutfitId] = useState<string | null>(null);
+  const [canRetry, setCanRetry] = useState(false);
+  const [capturedAt, setCapturedAt] = useState<Date>(new Date());
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+  // Same-photo payload kept for TRY AGAIN re-runs of the real pipeline.
+  const pendingRef = useRef<{ uri: string; base64?: string | null; mt: string } | null>(null);
+
+  // Real pipeline: upload → queue → poll worker. Returns true on success.
+  const runRealPipeline = async (p: { uri: string; base64?: string | null; mt: string }): Promise<boolean> => {
+    setStatusText('uploading…');
+    const up = await uploadAndAnalyze({ uri: p.uri, base64: p.base64, mediaType: p.mt, category });
+    if (!up.ok) {
+      showToast('upload: ' + shortCode(up.error));
+      console.warn('outft: upload failed:', up.error);
+      return false;
+    }
+    setStatusText('in queue…');
+    const polled = await pollAnalysis(up.outfitId, {
+      onStatus: (status) => {
+        // Truthful status straight from the server row.
+        setStatusText(status === 'analysis_queued' || status === 'queued' ? 'in queue…' : 'reading your style DNA…');
+      },
+    });
+    if (!polled.ok) {
+      showToast('analysis: ' + shortCode(polled.error));
+      console.warn('outft: analysis polling failed:', polled.error);
+      return false;
+    }
+    setOutfitId(up.outfitId);
+    setIsDemo(false);
+    setResult(polled.result);
+    return true;
+  };
+
+  // Labeled demo fallback (per PRD: no silent fake AI).
+  const runDemo = async (p: { uri: string; base64?: string | null; mt: string }) => {
+    setStatusText('Reading your style DNA…');
+    setIsDemo(true);
+    setOutfitId(null);
+    const res = await analyzeOutfitReal({ uri: p.uri, base64: p.base64, mediaType: p.mt });
+    setResult(res);
+  };
 
   const handlePicked = async (uri: string, base64?: string | null, mediaType?: string) => {
+    const p = { uri, base64, mt: mediaType ?? 'image/jpeg' };
+    pendingRef.current = p;
     setPhoto(uri);
     setResult(null);
     setIsDemo(false);
+    setOutfitId(null);
+    setCanRetry(false);
+    setCapturedAt(new Date());
     setAnalyzing(true);
     setOverlayOpen(true);
-    const mt = mediaType ?? 'image/jpeg';
 
-    // Real pipeline: upload → queue → poll worker. Falls back to the local
-    // demo analysis on any failure (labeled, per PRD: no silent fake AI).
     if (backendAvailable()) {
-      setStatusText('uploading…');
-      const up = await uploadAndAnalyze({ uri, base64, mediaType: mt, category });
-      if (up.ok) {
-        setStatusText('in queue…');
-        setTimeout(() => setStatusText((t) => (t === 'in queue…' ? 'reading your style DNA…' : t)), 4000);
-        const polled = await pollAnalysis(up.outfitId);
-        if (polled.ok) {
-          setResult(polled.result);
-          setAnalyzing(false);
-          return;
-        }
-        showToast('analysis: ' + polled.error);
-        console.warn('outft: analysis polling failed, falling back to demo:', polled.error);
-      } else {
-        showToast('upload: ' + up.error);
-        console.warn('outft: upload failed, falling back to demo:', up.error);
+      const ok = await runRealPipeline(p);
+      if (!ok) {
+        // Keep the receipt open and offer an inline retry before any fallback.
+        setCanRetry(true);
       }
     } else {
       showToast('backend not configured');
+      await runDemo(p);
     }
+    setAnalyzing(false);
+  };
 
-    setStatusText('Reading your style DNA…');
-    setIsDemo(true);
-    const res = await analyzeOutfitReal({ uri, base64, mediaType: mt });
-    setResult(res);
+  const retryPipeline = async () => {
+    const p = pendingRef.current;
+    if (!p || analyzing) return;
+    setCanRetry(false);
+    setAnalyzing(true);
+    const ok = await runRealPipeline(p);
+    if (!ok) {
+      // Retry failed too — fall back to the labeled demo analysis.
+      await runDemo(p);
+    }
     setAnalyzing(false);
   };
 
@@ -79,19 +136,38 @@ export default function CameraScreen() {
     if (!r.canceled && r.assets[0]) handlePicked(r.assets[0].uri, r.assets[0].base64, r.assets[0].mimeType);
   };
 
-  const closeOverlay = () => { setOverlayOpen(false); };
-  const retake = () => { setPhoto(null); setResult(null); setOverlayOpen(false); setBrand(''); setCaption(''); };
+  const closeOverlay = () => { setOverlayOpen(false); setCanRetry(false); };
+  const retake = () => {
+    setPhoto(null); setResult(null); setOverlayOpen(false); setBrand(''); setCaption('');
+    setOutfitId(null); setCanRetry(false); pendingRef.current = null;
+  };
 
   const share = () => {
     if (!photo || !result) return;
+    const trimmedBrand = brand.trim();
+    const trimmedCaption = caption.trim();
+    const isReal = !!outfitId && !isDemo;
+    if (isReal && outfitId) {
+      // Persist meta server-side (fail-soft; brand embedded — no brand column).
+      const serverCaption = trimmedBrand
+        ? (trimmedCaption ? `brand: ${trimmedBrand} — ${trimmedCaption}` : `brand: ${trimmedBrand}`)
+        : trimmedCaption;
+      updateOutfitMeta(outfitId, {
+        ...(serverCaption ? { caption: serverCaption } : {}),
+        category,
+      }).then((r) => {
+        if (!r.ok) console.warn('outft: outfit meta update failed:', r.error);
+      });
+    }
     const record: LatestOutfit = {
-      id: String(Date.now()),
+      // Use the server row id when real so history/delete map to the server row.
+      id: isReal && outfitId ? outfitId : String(Date.now()),
       photoUri: photo,
       result,
       category,
-      brand: brand.trim() || undefined,
-      caption: caption.trim() || undefined,
-      capturedAt: new Date().toISOString(),
+      brand: trimmedBrand || undefined,
+      caption: trimmedCaption || undefined,
+      capturedAt: capturedAt.toISOString(),
     };
     update({
       latestOutfit: record,
@@ -103,6 +179,7 @@ export default function CameraScreen() {
   };
 
   const catLabel = CATEGORIES.find((c) => c.key === category)?.label ?? 'Daily';
+  const stamp = receiptStamp(capturedAt);
 
   const camGranted = permission?.granted;
 
@@ -165,13 +242,15 @@ export default function CameraScreen() {
           >
           <View style={s.card}>
             <Text style={s.brand}>OUTFT.</Text>
-            <Text style={s.recordNo}>fit of record · no. {144 + outfitCount}</Text>
+            <Text style={s.recordNo}>fit of record · no. {captures.length + 1}</Text>
             <Photo uri={photo} style={{ width: '100%', aspectRatio: 3 / 4, marginTop: 10 }} />
             <View style={s.dashed} />
-            <Text style={s.metaRow}>{catLabel} · 22 June 2026</Text>
-            <Text style={s.metaRow}>14:32 · afternoon window</Text>
+            <Text style={s.metaRow}>{catLabel} · {stamp.date}</Text>
+            <Text style={s.metaRow}>{stamp.time} · {stamp.daypart} window</Text>
             {analyzing ? (
               <Text style={s.reading}>{statusText}</Text>
+            ) : canRetry && !result ? (
+              <Text style={s.reading}>analysis didn’t complete</Text>
             ) : result ? (
               <View>
                 {isDemo ? <Text style={s.demoLabel}>demo analysis</Text> : null}
@@ -212,6 +291,11 @@ export default function CameraScreen() {
             <Text style={s.footer}>trace · keep · revisit · 2026</Text>
           </View>
           </ScrollView>
+          {canRetry && !analyzing ? (
+            <View style={s.retryRow}>
+              <PillButton label="try again" onPress={retryPipeline} style={{ flex: 1, paddingVertical: 11 }} />
+            </View>
+          ) : null}
           <View style={s.actions}>
             <PillButton label="retake" onPress={retake} style={{ flex: 1, paddingVertical: 11 }} />
             <PillButton label="share trace" filled onPress={share} disabled={analyzing || !result} style={{ flex: 1, paddingVertical: 11 }} />
@@ -285,5 +369,6 @@ const s = StyleSheet.create({
   },
   barcode: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', marginTop: 14 },
   footer: { fontFamily: fonts.sans, fontSize: 8, color: colors.faint, textAlign: 'center', marginTop: 8, letterSpacing: 1 },
+  retryRow: { flexDirection: 'row', marginTop: 14, width: '100%', maxWidth: 290 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 18, width: '100%', maxWidth: 290 },
 });

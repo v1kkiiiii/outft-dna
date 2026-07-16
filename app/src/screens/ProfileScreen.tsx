@@ -4,21 +4,49 @@ import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts } from '../theme';
 import { LatestOutfit, useApp } from '../state';
 import { fetchMyOutfits } from '../lib/historyApi';
-import { BADGES, CATEGORIES, POSTS, SIGNATURE_COLORS, Post } from '../data';
+import { BADGES, CATEGORIES, Post } from '../data';
 import { Photo, PillButton, Polaroid, SectionLabel, Tag } from '../ui';
 
 const TABS = ['Trace', 'Saves', 'Backlog', 'Badges'] as const;
 type TabKey = (typeof TABS)[number];
 
 const BOARD_NAMES = ['Night out', 'Work', 'Gym', 'Inspo'];
-const BOARD_META = ['No. 12', 'No. 08', 'No. 05', 'No. 24'];
 const BADGE_GLYPHS = ['✦', '◆', '○', '◇', '✧', '★'];
-const GROUPINGS = ['occasions', 'months', 'years'] as const;
+const GROUPINGS = ['occasions', 'months'] as const;
 
-const LIGHT_DOT = (c: string) => ['#FFFFFF', '#F0EBE3', '#E8D8C4'].includes(c.toUpperCase()) || ['#FFFFFF', '#F0EBE3', '#E8D8C4'].includes(c);
+function dayKey(iso: string): string {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? iso : d.toDateString();
+}
+
+function fmtShortDate(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getMonth() + 1)}.${p(d.getDate())}.${String(d.getFullYear()).slice(2)}`;
+}
+
+// Consecutive-day streak ending today or yesterday, from real capture dates.
+function computeStreak(items: LatestOutfit[]): number {
+  const days = new Set(
+    items
+      .map((i) => new Date(i.capturedAt))
+      .filter((d) => !isNaN(d.getTime()))
+      .map((d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()),
+  );
+  if (days.size === 0) return 0;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const DAY = 24 * 60 * 60 * 1000;
+  let cursor = days.has(today) ? today : days.has(today - DAY) ? today - DAY : NaN;
+  if (isNaN(cursor)) return 0;
+  let n = 0;
+  while (days.has(cursor)) { n += 1; cursor -= DAY; }
+  return n;
+}
 
 export default function ProfileScreen() {
-  const { navigate, showToast, update, latestOutfit, outfitCount, streak, profileName, avatarUri, coverUri, collections, captures, savedPosts } = useApp();
+  const { navigate, showToast, update, latestOutfit, streak, profileName, avatarUri, coverUri, captures, savedPosts } = useApp();
   const [tab, setTab] = useState<TabKey>('Trace');
   const [grouping, setGrouping] = useState<(typeof GROUPINGS)[number]>('occasions');
   const [serverItems, setServerItems] = useState<LatestOutfit[]>([]);
@@ -69,22 +97,88 @@ export default function ProfileScreen() {
     }
   };
 
-  const sigTags = latestOutfit?.result.tags ?? ['Quiet luxury', 'Old money', 'Scandi'];
+  // Real merged history (local captures + server items, deduped by id).
+  const merged = useMemo(
+    () => [...captures, ...serverItems.filter((i) => !captures.some((c) => c.id === i.id))],
+    [captures, serverItems],
+  );
 
-  // Real stats from server items + local captures (deduped); demo fallbacks when empty.
-  const { totalFits, daysCaptured } = useMemo(() => {
-    const merged = [...captures, ...serverItems.filter((i) => !captures.some((c) => c.id === i.id))];
-    const days = new Set(
-      merged.map((i) => {
-        const d = new Date(i.capturedAt);
-        return isNaN(d.getTime()) ? i.capturedAt : d.toDateString();
-      }),
-    );
+  const { totalFits, daysCaptured, stylesFound, realStreak, tracingSince } = useMemo(() => {
+    const days = new Set(merged.map((i) => dayKey(i.capturedAt)));
+    const styles = new Set<string>();
+    for (const i of merged) for (const a of i.result.aesthetics) if (a.pct > 0) styles.add(a.label);
+    const timed = merged
+      .map((i) => ({ i, t: new Date(i.capturedAt).getTime() }))
+      .filter((x) => !isNaN(x.t))
+      .sort((a, b) => a.t - b.t);
     return {
-      totalFits: merged.length > 0 ? merged.length : 87 + outfitCount,
-      daysCaptured: days.size > 0 ? days.size : 142,
+      totalFits: merged.length,
+      daysCaptured: days.size,
+      stylesFound: styles.size,
+      realStreak: computeStreak(merged),
+      tracingSince: timed.length > 0 ? fmtShortDate(timed[0].i.capturedAt) : null,
     };
-  }, [captures, serverItems, outfitCount]);
+  }, [merged]);
+
+  // Latest real analysis (newest capture with any tags or aesthetics).
+  const latestAnalysis = useMemo(() => {
+    const sorted = [...merged].sort(
+      (a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime(),
+    );
+    return (
+      sorted.find((i) => i.result.tags.length > 0 || i.result.aesthetics.length > 0) ??
+      (latestOutfit && (latestOutfit.result.tags.length > 0 || latestOutfit.result.aesthetics.length > 0)
+        ? latestOutfit
+        : null)
+    );
+  }, [merged, latestOutfit]);
+
+  const savedFlat = Object.values(savedPosts).flat();
+
+  // Backlog groupings from real items only.
+  const byCategory = useMemo(() => {
+    const map = new Map<string, LatestOutfit[]>();
+    for (const i of merged) {
+      const key = i.category || 'daily';
+      map.set(key, [...(map.get(key) ?? []), i]);
+    }
+    return [...map.entries()];
+  }, [merged]);
+
+  const byMonth = useMemo(() => {
+    const map = new Map<string, LatestOutfit[]>();
+    for (const i of merged) {
+      const d = new Date(i.capturedAt);
+      const key = isNaN(d.getTime())
+        ? 'Undated'
+        : d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+      map.set(key, [...(map.get(key) ?? []), i]);
+    }
+    return [...map.entries()];
+  }, [merged]);
+
+  // Badges computed from real data only.
+  const badgeStates = useMemo(() => {
+    const hourOf = (iso: string) => new Date(iso).getHours();
+    const categoriesUsed = new Set(merged.map((i) => i.category || 'daily'));
+    const tagCount = (t: string) =>
+      merged.filter((i) => i.result.tags.some((x) => x.toLowerCase().includes(t))).length;
+    const earned: Record<string, boolean> = {
+      'Early Bird': merged.some((i) => {
+        const h = hourOf(i.capturedAt);
+        return !isNaN(h) && h >= 7 && h < 11;
+      }),
+      'Gym Warrior': merged.filter((i) => (i.category || '').toLowerCase() === 'gym').length >= 10,
+      'Minimalist Master': tagCount('minimal') >= 15,
+      'Fashion Explorer': categoriesUsed.size >= 3,
+      'Vintage Collector': tagCount('vintage') >= 8,
+      'Trend Setter': false, // echoes aren't tracked yet — stays locked
+    };
+    return BADGES.map((b) => ({ ...b, unlocked: earned[b.name] ?? false }));
+  }, [merged]);
+  const unlockedCount = badgeStates.filter((b) => b.unlocked).length;
+
+  const catLabel = (key: string) => CATEGORIES.find((c) => c.key === key)?.label ?? key;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.paper }} contentContainerStyle={{ paddingBottom: 48 }}>
@@ -128,19 +222,19 @@ export default function ProfileScreen() {
         </Pressable>
         <Text style={{ fontFamily: fonts.serif, fontSize: 32, color: colors.ink }}>{profileName}</Text>
         <Text style={{ fontFamily: fonts.sans, fontSize: 9, letterSpacing: 2, color: colors.sand, marginTop: 4 }}>
-          TRACING SINCE 12.03.25
+          {tracingSince ? `TRACING SINCE ${tracingSince}` : 'JUST STARTED'}
         </Text>
       </View>
 
-      {/* Stats strip */}
+      {/* Stats strip — real data only */}
       <View style={st.stats}>
         <StatCell num={String(totalFits)} label="outfits traced" />
         <View style={st.statDiv} />
         <StatCell num={String(daysCaptured)} label="days captured" />
         <View style={st.statDiv} />
-        <StatCell num="31" label="echoes found" onPress={() => navigate('twins')} />
+        <StatCell num={String(stylesFound)} label="styles found" />
         <View style={st.statDiv} />
-        <StatCell num={String(streak)} label="day streak" />
+        <StatCell num={String(realStreak)} label="day streak" />
       </View>
 
       {/* Sub-tabs */}
@@ -155,33 +249,24 @@ export default function ProfileScreen() {
       {tab === 'Trace' && (
         <View style={{ paddingHorizontal: 22, paddingTop: 24, gap: 18 }}>
           <SectionLabel>YOUR SIGNATURE TRACE</SectionLabel>
-          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-            {sigTags.slice(0, 3).map((t) => <Tag key={t} label={t} />)}
-          </View>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            {SIGNATURE_COLORS.map((c) => (
-              <View
-                key={c}
-                style={{
-                  width: 24, height: 24, borderRadius: 12, backgroundColor: c,
-                  borderWidth: LIGHT_DOT(c) ? 1 : 0, borderColor: colors.line,
-                }}
-              />
-            ))}
-          </View>
-
-          <Pressable onPress={() => navigate('dna')} style={st.card}>
-            <SectionLabel>THIS MONTH</SectionLabel>
-            <Text style={{ fontFamily: fonts.serif, fontSize: 18, color: colors.ink, marginTop: 8 }}>
-              Silhouette became 8% more structured.
-            </Text>
-            <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.muted, marginTop: 6 }}>
-              Proof of wear — your trace is shifting toward sharper lines and quieter palettes.
-            </Text>
-          </Pressable>
+          {latestAnalysis ? (
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              {(latestAnalysis.result.tags.length > 0
+                ? latestAnalysis.result.tags
+                : latestAnalysis.result.aesthetics.map((a) => a.label)
+              ).slice(0, 3).map((t) => <Tag key={t} label={t} />)}
+            </View>
+          ) : (
+            <>
+              <Text style={{ fontFamily: fonts.serifItalic, fontSize: 16, color: colors.ink }}>
+                Your signature trace appears after your first capture.
+              </Text>
+              <PillButton label="CAPTURE YOUR FIRST FIT" onPress={() => navigate('camera')} />
+            </>
+          )}
 
           <Pressable onPress={() => navigate('camera')} style={[st.card, { flexDirection: 'row', alignItems: 'center', gap: 14 }]}>
-            <Text style={{ fontFamily: fonts.serif, fontSize: 28, color: colors.ink }}>{streak}</Text>
+            <Text style={{ fontFamily: fonts.serif, fontSize: 28, color: colors.ink }}>{realStreak}</Text>
             <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.muted, flex: 1 }}>
               day streak · capture today to keep it alive
             </Text>
@@ -214,39 +299,38 @@ export default function ProfileScreen() {
                 onPress={() => navigate('collection', { collectionName: name })}
                 style={st.boardChip}
               >
-                <Text style={st.boardChipText}>{name}</Text>
+                <Text style={st.boardChipText}>
+                  {name} · {(savedPosts[name] ?? []).length}
+                </Text>
               </Pressable>
             ))}
           </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-            {captures.map((c) => (
-              <Pressable
-                key={c.id}
-                style={st.gridTile}
-                onPress={() => navigate('postDetail', { post: captureToPost(c) })}
-              >
-                <Photo uri={c.photoUri} style={{ width: '100%', height: '100%' }} />
-              </Pressable>
-            ))}
-            {Object.values(savedPosts).flat().map((p) => (
-              <Pressable
-                key={`s-${p.idx}`}
-                style={st.gridTile}
-                onPress={() => navigate('postDetail', { post: p })}
-              >
-                <Photo uri={p.photoUri} tone={p.tone} style={{ width: '100%', height: '100%' }} />
-              </Pressable>
-            ))}
-            {POSTS.slice(0, 9).map((p) => (
-              <Pressable
-                key={`d-${p.idx}`}
-                style={st.gridTile}
-                onPress={() => navigate('postDetail', { post: p })}
-              >
-                <Photo tone={p.tone} style={{ width: '100%', height: '100%' }} />
-              </Pressable>
-            ))}
-          </View>
+          {captures.length === 0 && savedFlat.length === 0 ? (
+            <Text style={{ fontFamily: fonts.serifItalic, fontSize: 16, color: colors.ink, textAlign: 'center', paddingHorizontal: 22, paddingVertical: 40 }}>
+              Nothing saved yet. Bookmark looks you love.
+            </Text>
+          ) : (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+              {captures.map((c) => (
+                <Pressable
+                  key={c.id}
+                  style={st.gridTile}
+                  onPress={() => navigate('postDetail', { post: captureToPost(c) })}
+                >
+                  <Photo uri={c.photoUri} style={{ width: '100%', height: '100%' }} />
+                </Pressable>
+              ))}
+              {savedFlat.map((p) => (
+                <Pressable
+                  key={`s-${p.idx}`}
+                  style={st.gridTile}
+                  onPress={() => navigate('postDetail', { post: p })}
+                >
+                  <Photo uri={p.photoUri} tone={p.tone} style={{ width: '100%', height: '100%' }} />
+                </Pressable>
+              ))}
+            </View>
+          )}
         </View>
       )}
 
@@ -308,38 +392,49 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          {grouping === 'occasions' && CATEGORIES.slice(0, 4).map((cat, i) => (
-            <View key={cat.key} style={{ marginTop: 22 }}>
-              <SectionLabel>{cat.label}</SectionLabel>
-              <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
-                {[0, 1, 2, 3].map((j) => {
-                  const post = POSTS[i * 4 + j];
-                  return (
-                    <Polaroid
-                      key={j}
-                      width={82}
-                      tone={post.tone}
-                      tiltIndex={j}
-                      meta={`Jun ${22 - j} · ${cat.label}`}
-                      number={`No. 0${j + 1}`}
-                      onPress={() => navigate('postDetail', { post })}
-                    />
-                  );
-                })}
+          {merged.length === 0 && (
+            <Text style={{ fontFamily: fonts.serifItalic, fontSize: 16, color: colors.ink, marginTop: 28, textAlign: 'center' }}>
+              No captures yet. Your archive starts with one fit.
+            </Text>
+          )}
+
+          {grouping === 'occasions' && byCategory.map(([key, items]) => (
+            <View key={key} style={{ marginTop: 22 }}>
+              <SectionLabel>{catLabel(key)}</SectionLabel>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
+                {items.map((c, j) => (
+                  <Polaroid
+                    key={c.id}
+                    width={82}
+                    uri={c.photoUri || undefined}
+                    tiltIndex={j}
+                    meta={new Date(c.capturedAt).toLocaleDateString()}
+                    number={c.caption ?? c.result.tags[0] ?? catLabel(key)}
+                    onPress={() => navigate('postDetail', { post: captureToPost(c) })}
+                  />
+                ))}
               </View>
             </View>
           ))}
 
-          {grouping === 'months' && (
-            <>
-              <PolaroidGrid title="June" posts={POSTS.slice(0, 12)} onTap={(p) => navigate('postDetail', { post: p })} />
-              <PolaroidGrid title="May" posts={POSTS.slice(24, 30)} onTap={(p) => navigate('postDetail', { post: p })} />
-            </>
-          )}
-
-          {grouping === 'years' && (
-            <PolaroidGrid title="2026" posts={POSTS.slice(0, 12)} onTap={(p) => navigate('postDetail', { post: p })} />
-          )}
+          {grouping === 'months' && byMonth.map(([month, items]) => (
+            <View key={month} style={{ marginTop: 22 }}>
+              <SectionLabel>{month}</SectionLabel>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 12 }}>
+                {items.map((c, j) => (
+                  <Polaroid
+                    key={c.id}
+                    width={96}
+                    uri={c.photoUri || undefined}
+                    tiltIndex={j}
+                    meta={new Date(c.capturedAt).toLocaleDateString()}
+                    number={c.caption ?? c.result.tags[0] ?? catLabel(c.category)}
+                    onPress={() => navigate('postDetail', { post: captureToPost(c) })}
+                  />
+                ))}
+              </View>
+            </View>
+          ))}
 
           <Pressable onPress={() => navigate('premium')} style={st.lockRow}>
             <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.sand }}>
@@ -352,13 +447,13 @@ export default function ProfileScreen() {
       {tab === 'Badges' && (
         <View style={{ paddingHorizontal: 22, paddingTop: 24 }}>
           <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.sand, textAlign: 'center' }}>
-            5 of 6 unlocked
+            {unlockedCount} of {badgeStates.length} unlocked
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 18 }}>
-            {BADGES.map((b, i) => (
+            {badgeStates.map((b, i) => (
               <Pressable
                 key={b.name}
-                onPress={() => (b.unlocked ? showToast(b.desc) : navigate('premium'))}
+                onPress={() => showToast(b.unlocked ? b.desc : `Locked · ${b.desc}`)}
                 style={[st.badgeCard, !b.unlocked && { borderStyle: 'dashed', opacity: 0.5 }]}
               >
                 <View style={st.badgeCircle}>
@@ -367,6 +462,11 @@ export default function ProfileScreen() {
                 <Text style={{ fontFamily: fonts.serif, fontSize: 15, color: colors.ink, marginTop: 10, textAlign: 'center' }}>
                   {b.name}
                 </Text>
+                {!b.unlocked && (
+                  <Text style={{ fontFamily: fonts.sans, fontSize: 9, color: colors.sand, marginTop: 4, textAlign: 'center' }}>
+                    {b.desc}
+                  </Text>
+                )}
               </Pressable>
             ))}
           </View>
@@ -384,29 +484,6 @@ function StatCell({ num, label, onPress }: { num: string; label: string; onPress
         {label}
       </Text>
     </Pressable>
-  );
-}
-
-function PolaroidGrid({ title, posts, onTap }: {
-  title: string; posts: typeof POSTS; onTap: (p: (typeof POSTS)[number]) => void;
-}) {
-  return (
-    <View style={{ marginTop: 22 }}>
-      <SectionLabel>{title}</SectionLabel>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 12 }}>
-        {posts.map((p, j) => (
-          <Polaroid
-            key={p.idx}
-            width={96}
-            tone={p.tone}
-            tiltIndex={j}
-            meta={p.date.split(' · ')[1] ?? p.date}
-            number={`No. ${String(j + 1).padStart(2, '0')}`}
-            onPress={() => onTap(p)}
-          />
-        ))}
-      </View>
-    </View>
   );
 }
 
@@ -446,8 +523,6 @@ const st = StyleSheet.create({
     backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center',
     borderWidth: 2, borderColor: colors.paper,
   },
-  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
-  photoTile: { width: '23%', aspectRatio: 3 / 4, backgroundColor: colors.cream, borderRadius: 6 },
   boardChip: {
     borderWidth: 1, borderColor: colors.tagBorder, borderRadius: 999,
     paddingVertical: 5, paddingHorizontal: 12,

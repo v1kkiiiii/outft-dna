@@ -1,43 +1,96 @@
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { colors, dnaColors, fonts } from '../theme';
-import { BRAND_PICKS, DNA_DEFAULT, ECHO_POSTS, PEOPLE } from '../data';
-import { useApp } from '../state';
-import { Avatar, DnaWheel, Photo, Rule, SectionLabel } from '../ui';
+import { BRAND_PICKS } from '../data';
+import { LatestOutfit, useApp } from '../state';
+import { computeDna, fetchMyOutfits } from '../lib/historyApi';
+import { DnaWheel, Photo, Rule, SectionLabel } from '../ui';
 
-const FRIENDS: { key: string; sub: string }[] = [
-  { key: 'lenav', sub: '8 echoes · quiet luxury' },
-  { key: 'ari', sub: '5 echoes · scandi' },
-  { key: 'noor', sub: '3 echoes · old money' },
+const EMPTY_WHEEL = [
+  { label: 'unknown', pct: 40 },
+  { label: 'unknown', pct: 30 },
+  { label: 'unknown', pct: 20 },
+  { label: 'unknown', pct: 10 },
 ];
 
-const ECHO_PCTS = ['94%', '87%', '81%', '79%'];
-
 export default function TwinsScreen() {
-  const { navigate, latestOutfit, following, toggleFollow, showToast } = useApp();
-  const dna = latestOutfit?.result.aesthetics ?? DNA_DEFAULT;
+  const { navigate, captures } = useApp();
+  const [serverItems, setServerItems] = useState<LatestOutfit[]>([]);
+
+  // Best-effort server history; offline or signed-out we keep local captures.
+  useEffect(() => {
+    let cancelled = false;
+    fetchMyOutfits().then((r) => {
+      if (!cancelled && r.ok && r.items.length > 0) setServerItems(r.items);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const merged = useMemo(() => {
+    const localIds = new Set(captures.map((c) => c.id));
+    return [...captures, ...serverItems.filter((i) => !localIds.has(i.id))];
+  }, [captures, serverItems]);
+
+  const dna = useMemo(() => computeDna(merged), [merged]);
+  const hasDna = dna.length > 0;
   const top3 = dna.slice(0, 3);
+
+  // Sponsored picks ordered by how well their tags match the user's real top aesthetic.
+  const picks = useMemo(() => {
+    if (!hasDna) return BRAND_PICKS;
+    const topLabels = dna.map((d) => d.label.toLowerCase());
+    const score = (p: (typeof BRAND_PICKS)[number]) => {
+      let s = 0;
+      p.tags.forEach((t) => {
+        const tag = t.toLowerCase();
+        topLabels.forEach((label, i) => {
+          if (label.includes(tag) || tag.includes(label)) s += topLabels.length - i;
+        });
+      });
+      return s;
+    };
+    return [...BRAND_PICKS].sort((a, b) => score(b) - score(a));
+  }, [dna, hasDna]);
+
+  const invite = async () => {
+    try {
+      await Share.share({
+        message: 'Trace your fashion DNA with me on OUTFT — every outfit, analyzed. Your closest style twins appear as the community grows.',
+      });
+    } catch {}
+  };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.paper }} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 40 }}>
-      {/* Your DNA card */}
+      {/* Your DNA card — real analyses only */}
       <Pressable style={s.dnaCard} onPress={() => navigate('dna')}>
         <View style={s.rowBetween}>
           <Text style={{ fontFamily: fonts.serif, fontSize: 18, color: colors.ink }}>Your DNA</Text>
           <Text style={{ fontFamily: fonts.sans, fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', color: colors.faint }}>View full trace</Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
-          <DnaWheel data={dna} size={130} />
-          <View style={{ flex: 1, marginLeft: 16, gap: 10 }}>
-            {top3.map((d, i) => (
-              <View key={d.label} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: dnaColors[i], marginRight: 8 }} />
-                <Text style={{ flex: 1, fontFamily: fonts.sans, fontSize: 12, color: colors.muted }}>{d.label}</Text>
-                <Text style={{ fontFamily: fonts.serif, fontSize: 16, color: colors.ink }}>{d.pct}%</Text>
-              </View>
-            ))}
+        {hasDna ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
+            <DnaWheel data={dna} size={130} />
+            <View style={{ flex: 1, marginLeft: 16, gap: 10 }}>
+              {top3.map((d, i) => (
+                <View key={d.label} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: dnaColors[i % dnaColors.length], marginRight: 8 }} />
+                  <Text style={{ flex: 1, fontFamily: fonts.sans, fontSize: 12, color: colors.muted }}>{d.label}</Text>
+                  <Text style={{ fontFamily: fonts.serif, fontSize: 16, color: colors.ink }}>{d.pct}%</Text>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
+        ) : (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
+            <View style={{ opacity: 0.25 }}>
+              <DnaWheel data={EMPTY_WHEEL} size={130} />
+            </View>
+            <Text style={{ flex: 1, marginLeft: 16, fontFamily: fonts.serifItalic, fontSize: 15, lineHeight: 22, color: colors.muted }}>
+              Your DNA forms after your first trace.
+            </Text>
+          </View>
+        )}
       </Pressable>
 
       {/* Wrapped banner */}
@@ -54,85 +107,31 @@ export default function TwinsScreen() {
         <Text style={{ fontFamily: fonts.serif, fontSize: 36, color: colors.ink, textAlign: 'center' }}>Your twins</Text>
       </View>
 
-      {/* Side-by-side match */}
-      <SectionLabel style={{ marginTop: 20 }}>YOUR LATEST FIT · THEIR CLOSEST MATCH</SectionLabel>
-      <Pressable style={{ flexDirection: 'row', gap: 10, marginTop: 12 }} onPress={() => navigate('otherProfile', { personKey: 'lenav' })}>
-        <View style={s.matchPhoto}>
-          <Photo uri={latestOutfit?.photoUri} tone="#C4B098" style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 8 }} />
-          <View style={s.captionBar}>
-            <Text style={s.captionText}>your fit / 22 June</Text>
-          </View>
-        </View>
-        <View style={s.matchPhoto}>
-          <Photo tone={ECHO_POSTS[0].tone} style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 8 }} />
-          <View style={s.captionBar}>
-            <Text style={s.captionText}>@lenav · Apr 14</Text>
-          </View>
-        </View>
-      </Pressable>
-      <View style={{ alignItems: 'center', marginTop: 16 }}>
-        <Text style={{ fontFamily: fonts.serif, fontSize: 22, color: colors.ink }}>94% echo</Text>
-        <Rule style={{ width: 40, marginVertical: 8 }} />
-        <Text style={{ fontFamily: fonts.sans, fontSize: 10, color: colors.faint }}>palette · silhouette · mood</Text>
+      {/* Echoes — honest empty state until real social ships */}
+      <SectionLabel style={{ marginTop: 24 }}>ECHOES</SectionLabel>
+      <View style={s.echoCard}>
+        <Text style={{ fontFamily: fonts.serifItalic, fontSize: 17, lineHeight: 26, color: colors.ink, textAlign: 'center' }}>
+          Echoes are people whose style matches yours. As the OUTFT community grows, your closest style twins appear here.
+        </Text>
+        <Rule style={{ width: 40, marginVertical: 18, alignSelf: 'center' }} />
+        <Pressable onPress={invite} style={s.invitePill}>
+          <Text style={s.inviteText}>INVITE FRIENDS</Text>
+        </Pressable>
       </View>
 
-      {/* Quiet explainer — placed after the match so it reads as a footnote */}
-      <Text style={s.explainerQuiet}>
-        An echo is when someone else's fit matches yours — same palette, same silhouette, same mood, traced independently.
-      </Text>
-
-      {/* More echoes — brand picks interleaved as sponsored recommendations */}
-      <SectionLabel style={{ marginTop: 32 }}>More echoes</SectionLabel>
-      <View style={[s.grid, { marginTop: 12 }]}>
-        {[ECHO_POSTS[0], ECHO_POSTS[1], BRAND_PICKS[0], ECHO_POSTS[2], ECHO_POSTS[3], BRAND_PICKS[1]].map((p, i) => (
+      {/* Sponsored picks — clearly labeled */}
+      <SectionLabel style={{ marginTop: 32 }}>CURATED FOR YOUR DNA</SectionLabel>
+      <View style={s.grid}>
+        {picks.map((p) => (
           <Pressable key={p.idx} style={{ width: '48%' }} onPress={() => navigate('postDetail', { post: p })}>
             <Photo tone={p.tone} style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 8 }} />
             <View style={s.pctBadge}>
-              <Text style={{ fontFamily: fonts.sansMedium, fontSize: 10, color: p.sponsor ? colors.taupe : colors.ink }}>
-                {p.sponsor ? p.handle : ECHO_PCTS[[0, 1, -1, 2, 3, -1][i]]}
-              </Text>
+              <Text style={{ fontFamily: fonts.sansMedium, fontSize: 10, color: colors.taupe }}>{p.handle}</Text>
             </View>
-            {p.sponsor && (
-              <Text style={s.sponsorTag}>SPONSORED · MATCHES YOUR DNA</Text>
-            )}
+            <Text style={s.sponsorTag}>SPONSORED</Text>
           </Pressable>
         ))}
       </View>
-
-      {/* People */}
-      <SectionLabel style={{ marginTop: 32 }}>People whose fits often echo yours</SectionLabel>
-      <View style={s.searchPill}>
-        <TextInput
-          placeholder="search people"
-          placeholderTextColor={colors.sand}
-          editable={false}
-          style={{ fontFamily: fonts.sans, fontSize: 12, color: colors.ink, padding: 0 }}
-        />
-      </View>
-      {FRIENDS.map((f) => {
-        const person = PEOPLE.find((p) => p.key === f.key)!;
-        const isFollowing = following.includes(f.key);
-        return (
-          <Pressable key={f.key} style={s.friendRow} onPress={() => navigate('otherProfile', { personKey: f.key })}>
-            <Avatar initials={person.ava} color={person.color} size={40} />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.ink }}>@{f.key}</Text>
-              <Text style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.faint, marginTop: 2 }}>{f.sub}</Text>
-            </View>
-            <Pressable
-              onPress={() => {
-                toggleFollow(f.key);
-                showToast(isFollowing ? `unfollowed @${f.key}` : `following @${f.key}`);
-              }}
-              style={[s.followPill, isFollowing && { backgroundColor: colors.ink, borderColor: colors.ink }]}
-            >
-              <Text style={[s.followText, isFollowing && { color: colors.paper }]}>
-                {isFollowing ? 'following' : 'follow'}
-              </Text>
-            </Pressable>
-          </Pressable>
-        );
-      })}
     </ScrollView>
   );
 }
@@ -144,29 +143,19 @@ const s = StyleSheet.create({
     backgroundColor: colors.ink, borderRadius: 12, padding: 16, marginTop: 14,
     flexDirection: 'row', alignItems: 'center',
   },
-  explainerQuiet: { fontFamily: fonts.sans, fontSize: 11, color: colors.faint, textAlign: 'center', marginTop: 18, lineHeight: 16 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginTop: 16 },
-  noteCard: { width: '48%', borderWidth: 1, borderColor: colors.line, borderRadius: 12, padding: 12 },
-  matchPhoto: { flex: 1, position: 'relative' },
-  captionBar: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: 'rgba(26,25,22,0.55)', paddingVertical: 6, paddingHorizontal: 8,
-    borderBottomLeftRadius: 8, borderBottomRightRadius: 8,
+  echoCard: {
+    borderWidth: 1, borderColor: colors.line, borderRadius: 12,
+    paddingVertical: 26, paddingHorizontal: 24, marginTop: 12,
   },
-  captionText: { fontFamily: fonts.sans, fontSize: 9, color: colors.paper, letterSpacing: 0.5 },
+  invitePill: {
+    borderWidth: 1, borderColor: colors.ink, borderRadius: 999,
+    paddingVertical: 10, paddingHorizontal: 26, alignSelf: 'center',
+  },
+  inviteText: { fontFamily: fonts.sansMedium, fontSize: 10, letterSpacing: 2, color: colors.ink },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 14, marginTop: 12 },
   pctBadge: {
     position: 'absolute', top: 8, left: 8, backgroundColor: colors.paper,
     borderRadius: 999, paddingVertical: 3, paddingHorizontal: 8,
   },
   sponsorTag: { fontFamily: fonts.sans, fontSize: 8, letterSpacing: 1, color: colors.sand, marginTop: 5 },
-  searchPill: {
-    backgroundColor: colors.cream, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 18,
-    marginTop: 12, marginBottom: 6,
-  },
-  friendRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
-  followPill: {
-    borderWidth: 1, borderColor: colors.ink, borderRadius: 999,
-    paddingVertical: 7, paddingHorizontal: 16,
-  },
-  followText: { fontFamily: fonts.sansMedium, fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', color: colors.ink },
 });

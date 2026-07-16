@@ -119,6 +119,57 @@ export async function fetchMyOutfits(limit = 60): Promise<HistoryResult> {
   }
 }
 
+// Fetch a single one of the signed-in user's outfits by id, mapped into the
+// local capture shape (signed photo URL + analysis). Best-effort: returns null
+// if the backend is unconfigured, unauthenticated, or the row is missing.
+export async function fetchMyOutfitById(outfitId: string): Promise<LatestOutfit | null> {
+  try {
+    if (!supabase) return null;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const session = sessionData?.session;
+    if (!session) return null;
+
+    const { data, error } = await supabase
+      .from('outfits')
+      .select('id, category, caption, captured_at, original_object_path, processed_object_path, latest_analysis_id, style_analyses (id, scores, traits, insight, created_at)')
+      .eq('owner_id', session.user.id)
+      .eq('id', outfitId)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (error || !data) return null;
+
+    const row = data as unknown as OutfitRow;
+    const path = row.processed_object_path ?? row.original_object_path;
+    let photoUri = '';
+    if (path) {
+      try {
+        const { data: signed } = await supabase.storage
+          .from(BUCKET)
+          .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+        photoUri = signed?.signedUrl ?? '';
+      } catch {
+        // leave placeholder tone; item still renders
+      }
+    }
+    const analysis = pickAnalysis(row);
+    const result: AnalysisResult = {
+      insight: analysis?.insight ?? '',
+      aesthetics: toAesthetics(analysis?.scores),
+      tags: toTags(analysis?.traits),
+    };
+    return {
+      id: row.id,
+      photoUri,
+      capturedAt: row.captured_at,
+      category: row.category ?? 'daily',
+      caption: row.caption ?? undefined,
+      result,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function deleteOutfit(outfitId: string): Promise<{ ok: boolean }> {
   try {
     if (!supabase) return { ok: false };

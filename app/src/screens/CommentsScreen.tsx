@@ -12,7 +12,10 @@ export default function CommentsScreen() {
   const key = params.commentsKey ?? 'detail';
   const post = params.post ?? POSTS[0];
 
-  const initial = useMemo(() => commentsFor(key), [key]);
+  // Own posts get no generated fake comments — only what the user adds this
+  // session. Demo/sponsored posts keep their seeded demo comments.
+  const isMine = post.handle === '@you';
+  const initial = useMemo(() => (isMine ? [] : commentsFor(key)), [key, isMine]);
   const [added, setAdded] = useState<Comment[]>([]);
   const [likedIdx, setLikedIdx] = useState<Record<number, boolean>>({});
   const [text, setText] = useState('');
@@ -43,6 +46,7 @@ export default function CommentsScreen() {
         data={comments}
         keyExtractor={(_, i) => String(i)}
         ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: '#F0EBE3' }} />}
+        ListEmptyComponent={<Text style={s.empty}>No comments yet.</Text>}
         renderItem={({ item, index }) => (
           <View style={s.row}>
             <Avatar initials={item.ava} color={item.color} size={32} />
@@ -98,6 +102,10 @@ const s = StyleSheet.create({
     flex: 1, backgroundColor: '#F7F7F7', borderRadius: 18,
     paddingHorizontal: 14, paddingVertical: 8, maxHeight: 100,
     fontFamily: fonts.serif, fontSize: 14, color: colors.ink,
+  },
+  empty: {
+    fontFamily: fonts.serifItalic, fontSize: 14, color: colors.faint,
+    textAlign: 'center', paddingVertical: 28,
   },
   postBtn: {
     fontFamily: fonts.sansMedium, fontSize: 14, color: '#3897F0', paddingHorizontal: 4,

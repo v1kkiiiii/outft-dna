@@ -34,6 +34,17 @@ export async function signInWithEmail(email: string, password: string): Promise<
   }
 }
 
+export async function resetPassword(email: string): Promise<AuthResult> {
+  if (!supabase) return { ok: false, error: OFFLINE };
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e?.message ?? 'NETWORK_ERROR' };
+  }
+}
+
 export async function signOutSupabase(): Promise<AuthResult> {
   if (!supabase) return { ok: false, error: OFFLINE };
   try {
