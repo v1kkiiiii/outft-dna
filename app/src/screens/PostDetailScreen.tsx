@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
-import { affiliateUrl, BRAND_PICKS, ECHO_POSTS, Post, POSTS } from '../data';
+import { affiliateUrl, BRAND_PICKS, ECHO_POSTS, Post, POSTS, postIdxFromId } from '../data';
 import { LatestOutfit, useApp } from '../state';
 import { backendAvailable } from '../lib/supabase';
 import { deleteOutfit, fetchMyOutfitById } from '../lib/historyApi';
@@ -79,7 +79,7 @@ export default function PostDetailScreen() {
 
   // Map one of the user's real captures to the Post shape for a thumbnail tile.
   const captureToPost = (c: LatestOutfit): Post => ({
-    idx: Number(c.id) || 0, handle: '@you', ava: 'EV', color: '#CDB89B',
+    idx: postIdxFromId(c.id), handle: '@you', ava: 'EV', color: '#CDB89B',
     date: new Date(c.capturedAt).toLocaleDateString(),
     caption: c.caption ?? c.result.insight,
     tags: c.result.tags.slice(0, 2), likes: 0, dna: c.result.insight,

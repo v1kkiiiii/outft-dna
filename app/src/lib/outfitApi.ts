@@ -22,6 +22,12 @@ export type PollResult =
 
 const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
+// App uses 'night'; the outfits_category_check constraint expects 'night_out'.
+const DB_CATEGORY: Record<string, string> = { night: 'night_out' };
+export function toDbCategory(category: string): string {
+  return DB_CATEGORY[category] ?? category;
+}
+
 // Decode base64 → ArrayBuffer. Prefers global atob (Hermes has it); manual
 // fallback keeps this dependency-free.
 function base64ToArrayBuffer(b64: string): ArrayBuffer {
@@ -102,7 +108,7 @@ export async function uploadAndAnalyze(input: UploadInput): Promise<UploadResult
       .insert({
         owner_id: userId,
         client_idempotency_key: idempotencyKey,
-        category: input.category,
+        category: toDbCategory(input.category),
         captured_at: nowIso,
         status: 'analysis_queued',
         original_object_path: objectPath,

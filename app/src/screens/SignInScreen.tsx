@@ -13,7 +13,7 @@ import {
 import { colors, fonts } from '../theme';
 import { useApp } from '../state';
 import { backendAvailable } from '../lib/supabase';
-import { resetPassword, signInWithEmail, signUpWithEmail, upsertProfile } from '../lib/authApi';
+import { resetPassword, signInWithEmail, signOutSupabase, signUpWithEmail, upsertProfile } from '../lib/authApi';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const CREAM = colors.creamDark; // #F0EBE3
@@ -30,6 +30,7 @@ export default function SignInScreen() {
   const [emailTouched, setEmailTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const resetBusy = useRef(false);
 
   const fade = useRef(new Animated.Value(1)).current;
   const slide = useRef(new Animated.Value(0)).current;
@@ -54,8 +55,9 @@ export default function SignInScreen() {
   };
 
   const startApple = () => {
+    // Don't persist signedIn yet — only finish() commits, so killing the app
+    // on step 2 can't restore a half-finished ghost session.
     setPath('apple');
-    update({ signedIn: true, guestMode: false, email: '' });
     transitionTo(2);
   };
 
@@ -73,14 +75,19 @@ export default function SignInScreen() {
     (path === 'apple' || (emailValid && password.length >= 6));
 
   const onForgotPassword = async () => {
-    if (busy) return;
+    if (busy || resetBusy.current) return;
     if (!emailValid) {
       showToast('enter your email first');
       return;
     }
-    const r = await resetPassword(email.trim());
-    if (r.ok) showToast('reset link sent (check your email)');
-    else showToast("couldn't send reset link — try again");
+    resetBusy.current = true;
+    try {
+      const r = await resetPassword(email.trim());
+      if (r.ok) showToast('reset link sent (check your email)');
+      else showToast("couldn't send reset link — try again");
+    } finally {
+      resetBusy.current = false;
+    }
   };
 
   const welcome = (displayName: string) => {
@@ -133,6 +140,9 @@ export default function SignInScreen() {
         if (signup.ok) {
           const prof = await upsertProfile(username, displayName);
           if (!prof.ok && prof.error === 'USERNAME_TAKEN') {
+            // Drop the fresh session so the app doesn't auto-restore a
+            // profile-less account on next launch.
+            signOutSupabase().catch(() => {});
             setAuthError('that username is taken');
             return;
           }

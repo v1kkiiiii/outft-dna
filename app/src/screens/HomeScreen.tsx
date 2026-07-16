@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
-import { Post } from '../data';
+import { Post, postIdxFromId } from '../data';
 import { LatestOutfit, useApp } from '../state';
 import { Photo, SectionLabel } from '../ui';
 import { fetchMyOutfits } from '../lib/historyApi';
@@ -17,7 +17,7 @@ function dayKey(d: Date): string {
 
 function captureToPost(c: LatestOutfit): Post {
   return {
-    idx: Number(c.id) || 0,
+    idx: postIdxFromId(c.id),
     handle: '@you',
     ava: 'EV',
     color: '#CDB89B',
@@ -32,6 +32,8 @@ function captureToPost(c: LatestOutfit): Post {
 }
 
 export default function HomeScreen() {
+  const hourNow = new Date().getHours();
+  const greeting = hourNow < 12 ? 'Good morning' : hourNow < 18 ? 'Good afternoon' : 'Good evening';
   const { navigate, profileName, latestOutfit, captures } = useApp();
   const firstName = profileName.split(' ')[0];
   const [serverItems, setServerItems] = useState<LatestOutfit[]>([]);
@@ -113,7 +115,7 @@ export default function HomeScreen() {
       </View>
 
       {/* Greeting */}
-      <Text style={s.h1}>Good morning, {firstName}.</Text>
+      <Text style={s.h1}>{greeting}, {firstName}.</Text>
       <Text style={s.h1Italic}>Your trace continues.</Text>
 
       {/* Streak card */}

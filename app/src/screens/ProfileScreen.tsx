@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts } from '../theme';
 import { LatestOutfit, useApp } from '../state';
 import { fetchMyOutfits } from '../lib/historyApi';
-import { BADGES, CATEGORIES, Post } from '../data';
+import { BADGES, CATEGORIES, Post, postIdxFromId } from '../data';
 import { Photo, PillButton, Polaroid, SectionLabel, Tag } from '../ui';
 
 const TABS = ['Trace', 'Saves', 'Backlog', 'Badges'] as const;
@@ -65,7 +65,7 @@ export default function ProfileScreen() {
   const syncedItems = serverItems.filter((i) => !localIds.has(i.id));
 
   const captureToPost = (c: LatestOutfit): Post => ({
-    idx: Number(c.id) || 0, handle: '@you', ava: 'EV', color: '#CDB89B',
+    idx: postIdxFromId(c.id), handle: '@you', ava: 'EV', color: '#CDB89B',
     date: new Date(c.capturedAt).toLocaleDateString(),
     caption: c.caption ?? c.result.insight,
     tags: c.result.tags.slice(0, 2), likes: 0, dna: c.result.insight,
@@ -344,44 +344,6 @@ export default function ProfileScreen() {
           <Text style={{ fontFamily: fonts.serifItalic, fontSize: 15, color: colors.ink, marginTop: 12, marginBottom: 8 }}>
             Your wear archive. Every outfit becomes evidence of a style in motion.
           </Text>
-
-          {syncedItems.length > 0 && (
-            <View style={{ marginTop: 22 }}>
-              <SectionLabel>SYNCED</SectionLabel>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 12 }}>
-                {syncedItems.map((c, j) => (
-                  <Polaroid
-                    key={c.id}
-                    width={96}
-                    uri={c.photoUri || undefined}
-                    tiltIndex={j}
-                    meta={new Date(c.capturedAt).toLocaleDateString()}
-                    number={c.caption ?? c.result.tags[0] ?? c.category}
-                    onPress={() => navigate('postDetail', { post: captureToPost(c) })}
-                  />
-                ))}
-              </View>
-            </View>
-          )}
-
-          {captures.length > 0 && (
-            <View style={{ marginTop: 22 }}>
-              <SectionLabel>Your captures</SectionLabel>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 12 }}>
-                {captures.map((c, j) => (
-                  <Polaroid
-                    key={c.id}
-                    width={96}
-                    uri={c.photoUri}
-                    tiltIndex={j}
-                    meta={new Date(c.capturedAt).toLocaleDateString()}
-                    number={c.caption ?? c.result.tags[0]}
-                    onPress={() => navigate('postDetail', { post: captureToPost(c) })}
-                  />
-                ))}
-              </View>
-            </View>
-          )}
 
           {merged.length === 0 && (
             <Text style={{ fontFamily: fonts.serifItalic, fontSize: 16, color: colors.ink, marginTop: 28, textAlign: 'center' }}>

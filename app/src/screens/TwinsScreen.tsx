@@ -14,6 +14,8 @@ const EMPTY_WHEEL = [
 ];
 
 export default function TwinsScreen() {
+  const monthName = new Date().toLocaleDateString(undefined, { month: 'long' });
+  const monthNum = String(new Date().getMonth() + 1).padStart(2, '0');
   const { navigate, captures } = useApp();
   const [serverItems, setServerItems] = useState<LatestOutfit[]>([]);
 
@@ -97,9 +99,9 @@ export default function TwinsScreen() {
       <Pressable style={s.wrappedBanner} onPress={() => navigate('wrapped')}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.serif, fontSize: 18, color: colors.paper }}>Your wrapped</Text>
-          <Text style={{ fontFamily: fonts.sans, fontSize: 10, color: colors.faint, marginTop: 4 }}>June in silhouettes, palettes, and echoes</Text>
+          <Text style={{ fontFamily: fonts.sans, fontSize: 10, color: colors.faint, marginTop: 4 }}>{monthName} in silhouettes, palettes, and echoes</Text>
         </View>
-        <Text style={{ fontFamily: fonts.serif, fontSize: 40, color: colors.paper }}>06</Text>
+        <Text style={{ fontFamily: fonts.serif, fontSize: 40, color: colors.paper }}>{monthNum}</Text>
       </Pressable>
 
       {/* Hero */}

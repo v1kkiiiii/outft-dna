@@ -6,7 +6,7 @@ import { useApp } from './state';
 
 // Instagram-style "save to collection" bottom sheet, shared by post detail + home feed.
 export function SaveSheet({ post, visible, onClose }: { post: Post; visible: boolean; onClose: () => void }) {
-  const { savedPosts, collections, savePost, showToast } = useApp();
+  const { savedPosts, savePost, showToast } = useApp();
   const names = Object.keys(savedPosts);
 
   const pick = (name: string) => {
@@ -22,7 +22,7 @@ export function SaveSheet({ post, visible, onClose }: { post: Post; visible: boo
           <View style={s.pill} />
           <Text style={s.title}>Save to collection</Text>
           {names.map((name, i) => {
-            const count = (collections[name] ?? 0) + (savedPosts[name]?.length ?? 0);
+            const count = savedPosts[name]?.length ?? 0;
             return (
               <Pressable key={name} style={s.row} onPress={() => pick(name)}>
                 <View style={[s.swatch, { backgroundColor: photoTones[i % photoTones.length] }]} />

@@ -1,12 +1,13 @@
 import React, { useRef, useState } from 'react';
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Dimensions, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts } from '../theme';
 import { AnalysisResult, CATEGORIES } from '../data';
 import { analyzeOutfitReal } from '../analyze';
 import { backendAvailable } from '../lib/supabase';
-import { uploadAndAnalyze, pollAnalysis, updateOutfitMeta } from '../lib/outfitApi';
+import { uploadAndAnalyze, pollAnalysis, toDbCategory, updateOutfitMeta } from '../lib/outfitApi';
+import { deleteOutfit } from '../lib/historyApi';
 import { useApp, LatestOutfit } from '../state';
 import { Photo, PillButton, Tag } from '../ui';
 
@@ -58,6 +59,9 @@ export default function CameraScreen() {
       console.warn('outft: upload failed:', up.error);
       return false;
     }
+    // Server row exists from here on — keep its id even if polling fails, so a
+    // later server sync dedupes against this capture instead of double-counting.
+    setOutfitId(up.outfitId);
     setStatusText('in queue…');
     const polled = await pollAnalysis(up.outfitId, {
       onStatus: (status) => {
@@ -80,7 +84,8 @@ export default function CameraScreen() {
   const runDemo = async (p: { uri: string; base64?: string | null; mt: string }) => {
     setStatusText('Reading your style DNA…');
     setIsDemo(true);
-    setOutfitId(null);
+    // Do NOT clear outfitId: if the upload succeeded but analysis failed, the
+    // server row exists and the local record must share its id to dedupe later.
     const res = await analyzeOutfitReal({ uri: p.uri, base64: p.base64, mediaType: p.mt });
     setResult(res);
   };
@@ -124,20 +129,43 @@ export default function CameraScreen() {
   };
 
   const snap = async () => {
-    if (!cameraRef.current) return;
-    const pic = await cameraRef.current.takePictureAsync({ quality: 0.6, base64: true });
-    if (pic) handlePicked(pic.uri, pic.base64);
+    if (!cameraRef.current || analyzing) return;
+    try {
+      const pic = await cameraRef.current.takePictureAsync({ quality: 0.6, base64: true });
+      if (pic) handlePicked(pic.uri, pic.base64);
+    } catch (e) {
+      showToast('capture failed — try again');
+      console.warn('outft: takePicture failed:', e);
+    }
   };
 
   const upload = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { showToast('photo permission needed'); return; }
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6, base64: true });
-    if (!r.canceled && r.assets[0]) handlePicked(r.assets[0].uri, r.assets[0].base64, r.assets[0].mimeType);
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) { showToast('photo permission needed'); return; }
+      const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6, base64: true });
+      if (!r.canceled && r.assets[0]) handlePicked(r.assets[0].uri, r.assets[0].base64, r.assets[0].mimeType);
+    } catch (e) {
+      showToast('photo picker failed — try again');
+      console.warn('outft: image picker failed:', e);
+    }
   };
 
-  const closeOverlay = () => { setOverlayOpen(false); setCanRetry(false); };
+  // Discarding an uploaded-but-unshared trace: tombstone the orphan server row
+  // so it never resurfaces in history/stats. Fail-soft.
+  const discardOrphan = () => {
+    if (outfitId) {
+      deleteOutfit(outfitId).catch(() => {});
+    }
+  };
+
+  const closeOverlay = () => {
+    discardOrphan();
+    setPhoto(null); setResult(null); setOverlayOpen(false); setBrand(''); setCaption('');
+    setOutfitId(null); setCanRetry(false); pendingRef.current = null;
+  };
   const retake = () => {
+    discardOrphan();
     setPhoto(null); setResult(null); setOverlayOpen(false); setBrand(''); setCaption('');
     setOutfitId(null); setCanRetry(false); pendingRef.current = null;
   };
@@ -154,14 +182,15 @@ export default function CameraScreen() {
         : trimmedCaption;
       updateOutfitMeta(outfitId, {
         ...(serverCaption ? { caption: serverCaption } : {}),
-        category,
+        category: toDbCategory(category),
       }).then((r) => {
         if (!r.ok) console.warn('outft: outfit meta update failed:', r.error);
       });
     }
     const record: LatestOutfit = {
-      // Use the server row id when real so history/delete map to the server row.
-      id: isReal && outfitId ? outfitId : String(Date.now()),
+      // Use the server row id whenever one exists (even for a demo-labeled
+      // result after upload succeeded) so a later server sync dedupes.
+      id: outfitId ?? String(Date.now()),
       photoUri: photo,
       result,
       category,
@@ -197,8 +226,17 @@ export default function CameraScreen() {
         {camGranted ? (
           <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} />
         ) : (
-          <Pressable style={s.permBox} onPress={requestPermission}>
-            <Text style={s.permText}>TAP TO ENABLE CAMERA</Text>
+          <Pressable
+            style={s.permBox}
+            onPress={() => {
+              // After a hard denial iOS won't re-prompt — send them to Settings.
+              if (permission && !permission.canAskAgain) Linking.openSettings().catch(() => {});
+              else requestPermission();
+            }}
+          >
+            <Text style={s.permText}>
+              {permission && !permission.canAskAgain ? 'ENABLE CAMERA IN SETTINGS' : 'TAP TO ENABLE CAMERA'}
+            </Text>
           </Pressable>
         )}
       </View>

@@ -57,7 +57,7 @@ export default function DnaScreen() {
   }, [analyzed]);
 
   const rows: { label: string; go: () => void }[] = [
-    { label: 'May wrapped', go: () => navigate('wrapped') },
+    { label: `${new Date().toLocaleDateString(undefined, { month: 'long' })} wrapped`, go: () => navigate('wrapped') },
     { label: 'Advanced analytics · premium only', go: () => navigate('premium') },
   ];
 

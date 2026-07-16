@@ -150,6 +150,16 @@ export const BADGES = [
   { name: 'Trend Setter', desc: 'Get 3 echoes within 24 hours. Premium only.', unlocked: false },
 ];
 
+// Stable numeric idx for a capture id (UUIDs would coerce to NaN → 0 and
+// collide with each other and with demo posts). Offset past demo idx space.
+export function postIdxFromId(id: string): number {
+  const n = Number(id);
+  if (Number.isFinite(n) && n > 0) return n;
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return 100000 + (Math.abs(h) % 1000000000);
+}
+
 export const CATEGORIES = [
   { key: 'daily', label: 'Daily', sub: 'everyday ft.' },
   { key: 'night', label: 'Night out', sub: 'evening trace' },
