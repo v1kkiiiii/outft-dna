@@ -305,21 +305,12 @@ export default function ProfileScreen() {
               </Pressable>
             ))}
           </View>
-          {captures.length === 0 && savedFlat.length === 0 ? (
+          {savedFlat.length === 0 ? (
             <Text style={{ fontFamily: fonts.serifItalic, fontSize: 16, color: colors.ink, textAlign: 'center', paddingHorizontal: 22, paddingVertical: 40 }}>
               Nothing saved yet. Bookmark looks you love.
             </Text>
           ) : (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-              {captures.map((c) => (
-                <Pressable
-                  key={c.id}
-                  style={st.gridTile}
-                  onPress={() => navigate('postDetail', { post: captureToPost(c) })}
-                >
-                  <Photo uri={c.photoUri} style={{ width: '100%', height: '100%' }} />
-                </Pressable>
-              ))}
               {savedFlat.map((p) => (
                 <Pressable
                   key={`s-${p.idx}`}
