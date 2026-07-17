@@ -1,13 +1,15 @@
 {
   "expo": {
-    "name": "OUTFT",
-    "slug": "outft-test",
+    "name": "outft.",
+    "slug": "outft",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.outft.app",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -16,7 +18,8 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.outft.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -36,6 +39,11 @@
         }
       ],
       "expo-secure-store"
-    ]
+    ],
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F4F1EA"
+    }
   }
 }
