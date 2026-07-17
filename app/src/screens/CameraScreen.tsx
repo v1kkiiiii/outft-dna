@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Dimensions, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { colors, fonts } from '../theme';
 import { AnalysisResult, CATEGORIES } from '../data';
 import { analyzeOutfitReal } from '../analyze';
@@ -90,8 +91,25 @@ export default function CameraScreen() {
     setResult(res);
   };
 
+  // Downscale to 1200px max edge before upload: full-sensor photos make the
+  // vision call several times slower for no analysis benefit. Fail-soft to
+  // the original if manipulation is unavailable.
+  const shrinkForUpload = async (uri: string, base64?: string | null, mediaType?: string) => {
+    try {
+      const shrunk = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1200 } }],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+      if (shrunk.base64) return { uri: shrunk.uri, base64: shrunk.base64, mt: 'image/jpeg' };
+    } catch (e) {
+      console.warn('outft: image downscale failed, sending original:', e);
+    }
+    return { uri, base64, mt: mediaType ?? 'image/jpeg' };
+  };
+
   const handlePicked = async (uri: string, base64?: string | null, mediaType?: string) => {
-    const p = { uri, base64, mt: mediaType ?? 'image/jpeg' };
+    const p = await shrinkForUpload(uri, base64, mediaType);
     pendingRef.current = p;
     setPhoto(uri);
     setResult(null);

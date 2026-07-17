@@ -38,7 +38,9 @@ function getClient(): Anthropic {
   if (!apiKey) {
     throw new Error('ANTHROPIC_API_KEY is not set in the worker environment');
   }
-  return new Anthropic({ apiKey });
+  // 90s per-request cap (SDK default is 10 min): a slow vision call fails
+  // fast into the retry/backoff loop instead of stalling the job lease.
+  return new Anthropic({ apiKey, timeout: 90_000 });
 }
 
 /** Classifies whether a thrown error is retryable per ML.md §4.2. */
