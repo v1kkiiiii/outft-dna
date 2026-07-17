@@ -2507,11 +2507,9 @@ function show(k, isBack){
   updateNav(k);
   document.querySelectorAll('.sc').forEach(function(s){ s.scrollTop=0; });
   if(k==='wrapped') resetWrapped();
+  var ro=document.getElementById('rcpt-ov'); if(ro) ro.classList.remove('show');
   if(k==='camera') startOutfitCamera();
-  if(k!=='camera'){
-    stopOutfitCamera();
-    var ro=document.getElementById('rcpt-ov'); if(ro) ro.classList.remove('show');
-  }
+  if(k!=='camera') stopOutfitCamera();
 }
 
 function scrollHomeToFriends(){
@@ -2663,8 +2661,7 @@ async function analyzeOutfit(dataUrl){
   document.getElementById('receipt-photo').src=dataUrl;
   var cat=document.querySelector('.cat-btn.sel');
   document.getElementById('rcpt-cat').textContent=cat?cat.getAttribute('data-cat'):'Daily';
-  fitNo++;
-  var fitCode=String(fitNo).padStart(4,'0');
+  var fitCode=String(fitNo+1).padStart(4,'0');
   document.getElementById('rcpt-no').textContent=fitCode;
   renderBarcode('OUTFT-'+fitCode);
   document.getElementById('dna-insight').textContent='Reading your style DNA…';
@@ -2674,8 +2671,11 @@ async function analyzeOutfit(dataUrl){
     var parts=dataUrl.split(',');
     var mediaType=(parts[0].match(/data:([^;]+)/)||[])[1]||'image/jpeg';
     var response=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({imageBase64:parts[1],mediaType:mediaType})});
-    var payload=await response.json();
-    if(!response.ok) throw new Error(payload.error||'Analysis failed');
+    var payload=null;
+    try{ payload=await response.json(); }catch(parseError){}
+    if(!response.ok) throw new Error((payload&&payload.error)||(response.status===413?'That photo is too large. Try a smaller one.':'Analysis failed. Please try again.'));
+    if(!payload) throw new Error('Analysis failed. Please try again.');
+    fitNo++;
     renderDNA(payload);
     var selectedCategory=document.querySelector('.cat-btn.sel');
     saveCapturedOutfit(dataUrl,payload,selectedCategory?selectedCategory.getAttribute('data-cat'):'Daily');
@@ -2972,10 +2972,13 @@ document.getElementById('camera-file').addEventListener('change',function(event)
       var canvas=document.createElement('canvas');
       canvas.width=Math.round(img.width*scale);
       canvas.height=Math.round(img.height*scale);
-      canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+      var ctx=canvas.getContext('2d');
+      ctx.fillStyle='#fff';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
       analyzeOutfit(canvas.toDataURL('image/jpeg',.84));
     };
-    img.onerror=function(){ analyzeOutfit(reader.result); };
+    img.onerror=function(){ toast('that photo format is not supported — use JPEG or PNG'); };
     img.src=reader.result;
   };
   reader.onerror=function(){ toast('could not read that photo'); };
