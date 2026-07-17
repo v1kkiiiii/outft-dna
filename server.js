@@ -58,7 +58,13 @@ app.post('/api/analyze', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'We could not analyze this outfit. Please try again.' });
+    const status = typeof err?.status === 'number' ? err.status : 500;
+    const detail = err?.error?.error?.message || err?.message || '';
+    res.status(status).json({
+      error: detail
+        ? `We could not analyze this outfit: ${detail}`
+        : 'We could not analyze this outfit. Please try again.'
+    });
   }
 });
 
