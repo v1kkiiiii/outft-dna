@@ -44,6 +44,9 @@
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#F4F1EA"
+    },
+    "experiments": {
+      "baseUrl": "/demo/app"
     }
   }
 }
