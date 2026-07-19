@@ -14,15 +14,15 @@
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://YOUR-PROJECT.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "YOUR-ANON-KEY"
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ddqexxgjhouaujqiervh.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_53fICz3CL4P6QE4Q7MTy1w_em-pwybZ"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://YOUR-PROJECT.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "YOUR-ANON-KEY"
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ddqexxgjhouaujqiervh.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_53fICz3CL4P6QE4Q7MTy1w_em-pwybZ"
       }
     }
   },

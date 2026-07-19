@@ -19,7 +19,11 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.outft.app"
+      "package": "com.outft.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -47,6 +51,12 @@
     },
     "experiments": {
       "baseUrl": "/demo/app"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "225fce5b-31d5-47b4-87e9-a7ab13c1209f"
+      }
+    },
+    "owner": "sahana-lydia"
   }
 }
