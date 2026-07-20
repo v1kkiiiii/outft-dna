@@ -4,6 +4,7 @@ import { colors, dnaColors, fonts } from '../theme';
 import { BRAND_PICKS } from '../data';
 import { LatestOutfit, useApp } from '../state';
 import { computeDna, fetchMyOutfits } from '../lib/historyApi';
+import { fetchPlacements } from '../lib/adsApi';
 import { DnaWheel, Photo, Rule, SectionLabel } from '../ui';
 
 const EMPTY_WHEEL = [
@@ -18,6 +19,17 @@ export default function TwinsScreen() {
   const monthNum = String(new Date().getMonth() + 1).padStart(2, '0');
   const { navigate, captures } = useApp();
   const [serverItems, setServerItems] = useState<LatestOutfit[]>([]);
+  const [placements, setPlacements] = useState(BRAND_PICKS);
+
+  // Remote sponsored placements; fetchPlacements falls back to BRAND_PICKS
+  // on any error, so this slot is never empty.
+  useEffect(() => {
+    let cancelled = false;
+    fetchPlacements('twins').then((p) => {
+      if (!cancelled) setPlacements(p);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // Best-effort server history; offline or signed-out we keep local captures.
   useEffect(() => {
@@ -39,9 +51,9 @@ export default function TwinsScreen() {
 
   // Sponsored picks ordered by how well their tags match the user's real top aesthetic.
   const picks = useMemo(() => {
-    if (!hasDna) return BRAND_PICKS;
+    if (!hasDna) return placements;
     const topLabels = dna.map((d) => d.label.toLowerCase());
-    const score = (p: (typeof BRAND_PICKS)[number]) => {
+    const score = (p: (typeof placements)[number]) => {
       let s = 0;
       p.tags.forEach((t) => {
         const tag = t.toLowerCase();
@@ -51,8 +63,8 @@ export default function TwinsScreen() {
       });
       return s;
     };
-    return [...BRAND_PICKS].sort((a, b) => score(b) - score(a));
-  }, [dna, hasDna]);
+    return [...placements].sort((a, b) => score(b) - score(a));
+  }, [dna, hasDna, placements]);
 
   const invite = async () => {
     try {
