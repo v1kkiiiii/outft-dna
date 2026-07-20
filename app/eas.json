@@ -6,7 +6,8 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
@@ -16,14 +17,16 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://ddqexxgjhouaujqiervh.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_53fICz3CL4P6QE4Q7MTy1w_em-pwybZ"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://ddqexxgjhouaujqiervh.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_53fICz3CL4P6QE4Q7MTy1w_em-pwybZ"
-      }
+      },
+      "channel": "production"
     }
   },
   "submit": {

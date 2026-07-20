@@ -9,7 +9,10 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.outft.app",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,6 +24,8 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.outft.app",
       "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA"
       ]
@@ -57,6 +62,12 @@
         "projectId": "225fce5b-31d5-47b4-87e9-a7ab13c1209f"
       }
     },
-    "owner": "sahana-lydia"
+    "owner": "sahana-lydia",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/225fce5b-31d5-47b4-87e9-a7ab13c1209f"
+    }
   }
 }
