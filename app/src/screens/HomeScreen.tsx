@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
 import { Post, postIdxFromId } from '../data';
 import { LatestOutfit, useApp } from '../state';
-import { Photo, SectionLabel } from '../ui';
+import { Photo, pressDim, SectionLabel } from '../ui';
 import { fetchMyOutfits } from '../lib/historyApi';
+import { fetchPlacements, HOME_FALLBACK } from '../lib/adsApi';
 
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -37,6 +38,17 @@ export default function HomeScreen() {
   const { navigate, profileName, latestOutfit, captures } = useApp();
   const firstName = profileName.split(' ')[0];
   const [serverItems, setServerItems] = useState<LatestOutfit[]>([]);
+  const [homeAd, setHomeAd] = useState<Post>(HOME_FALLBACK[0]);
+
+  // Remote sponsored spotlight; fetchPlacements falls back on any error,
+  // so the card always has content.
+  useEffect(() => {
+    let alive = true;
+    fetchPlacements('home')
+      .then((p) => { if (alive && p.length > 0) setHomeAd(p[0]); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -95,6 +107,14 @@ export default function HomeScreen() {
   const newestCapture = todayCapture ?? allCaptures[0];
   const insight = latestOutfit?.result.insight;
 
+  // Streak number springs in on mount.
+  const streakAnim = useRef(new Animated.Value(0.5)).current;
+  useEffect(() => {
+    Animated.spring(streakAnim, {
+      toValue: 1, friction: 5, tension: 60, useNativeDriver: true,
+    }).start();
+  }, [streakAnim]);
+
   const inviteFriends = () => {
     Share.share({ message: 'tracing my style DNA on OUTFT — join me' }).catch(() => {});
   };
@@ -105,10 +125,10 @@ export default function HomeScreen() {
       <View style={s.headerRow}>
         <Text style={s.wordmark}>outft.</Text>
         <View style={{ flexDirection: 'row', gap: 18 }}>
-          <Pressable onPress={() => navigate('messages')} hitSlop={8}>
+          <Pressable onPress={() => navigate('messages')} hitSlop={8} style={pressDim}>
             <Text style={s.headerGlyph}>▤</Text>
           </Pressable>
-          <Pressable onPress={() => navigate('activity')} hitSlop={8}>
+          <Pressable onPress={() => navigate('activity')} hitSlop={8} style={pressDim}>
             <Text style={s.headerGlyph}>◈</Text>
           </Pressable>
         </View>
@@ -119,15 +139,17 @@ export default function HomeScreen() {
       <Text style={s.h1Italic}>Your trace continues.</Text>
 
       {/* Streak card */}
-      <Pressable style={s.streakCard} onPress={() => navigate('profile')}>
+      <Pressable style={({ pressed }) => [s.streakCard, pressed && { transform: [{ scale: 0.97 }] }]} onPress={() => navigate('profile')}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-          <Text style={s.streakNum}>{streak}</Text>
+          <Animated.Text style={[s.streakNum, { transform: [{ scale: streakAnim }], opacity: streakAnim }]}>{streak}</Animated.Text>
           <View style={{ flex: 1 }}>
             <Text style={s.streakLabel}>Day streak</Text>
             <Text style={s.streakSub}>
               {allCaptures.length === 0
                 ? 'capture your first trace to start a streak'
-                : 'capture today to keep it alive'}
+                : streak === 0
+                  ? 'start again — the record keeps everything'
+                  : 'capture today to keep it alive'}
             </Text>
           </View>
         </View>
@@ -165,7 +187,7 @@ export default function HomeScreen() {
         {todayCapture || !newestCapture ? "TODAY'S TRACE" : 'LATEST TRACE'}
       </SectionLabel>
       {newestCapture ? (
-        <Pressable onPress={() => navigate('postDetail', { post: captureToPost(newestCapture) })}>
+        <Pressable style={pressDim} onPress={() => navigate('postDetail', { post: captureToPost(newestCapture) })}>
           <Photo uri={newestCapture.photoUri} tone="#DFDFDF" style={s.todayPhoto} />
           <View style={s.todayBar}>
             <Text style={s.todayBarText}>
@@ -180,7 +202,7 @@ export default function HomeScreen() {
       ) : (
         <View style={s.emptyTrace}>
           <Text style={s.emptyTraceText}>No trace yet today.</Text>
-          <Pressable style={s.emptyTracePill} onPress={() => navigate('camera')}>
+          <Pressable style={({ pressed }) => [s.emptyTracePill, pressed && { transform: [{ scale: 0.97 }] }]} onPress={() => navigate('camera')}>
             <Text style={s.emptyTracePillText}>CAPTURE YOUR FIRST TRACE</Text>
           </Pressable>
         </View>
@@ -193,12 +215,12 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      {/* Brand spotlight — one sponsored slot per style lane. Demo placeholder
-          only: no real ad-serving or user-data targeting is wired up here. */}
+      {/* Brand spotlight — one sponsored slot per style lane, served from
+          sponsored_placements (surface 'home') with a hardcoded fallback. */}
       <View style={s.sponsorCard}>
-        <Text style={s.sponsorLabel}>SPONSORED · QUIET LUXURY LANE</Text>
-        <Text style={s.sponsorBrand}>Featured brand</Text>
-        <Text style={s.sponsorCopy}>Shop the pieces closest to your trace.</Text>
+        <Text style={s.sponsorLabel}>SPONSORED · {homeAd.dna.toUpperCase()}</Text>
+        <Text style={s.sponsorBrand}>{homeAd.handle}</Text>
+        <Text style={s.sponsorCopy}>{homeAd.caption}</Text>
       </View>
 
       {/* Friends */}
@@ -207,7 +229,7 @@ export default function HomeScreen() {
         <Text style={s.friendsCopy}>
           OUTFT is better with friends. Invite yours — their traces will appear here.
         </Text>
-        <Pressable style={s.invitePill} onPress={inviteFriends}>
+        <Pressable style={({ pressed }) => [s.invitePill, pressed && { transform: [{ scale: 0.97 }] }]} onPress={inviteFriends}>
           <Text style={s.invitePillText}>INVITE FRIENDS</Text>
         </Pressable>
       </View>

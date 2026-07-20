@@ -37,6 +37,7 @@ interface PersistedState {
   collections: Record<string, number>; // board name -> seed count from the demo
   savedPosts: Record<string, Post[]>; // board name -> posts the user actually saved
   captures: LatestOutfit[]; // every analyzed outfit, newest first
+  remindersEnabled: boolean; // daily trace reminder notifications
 }
 
 const DEFAULT_STATE: PersistedState = {
@@ -56,6 +57,7 @@ const DEFAULT_STATE: PersistedState = {
   collections: { 'Night out': 0, Work: 0, Gym: 0, Inspo: 0 },
   savedPosts: { 'Night out': [], Work: [], Gym: [], Inspo: [] },
   captures: [],
+  remindersEnabled: false,
 };
 
 const STORAGE_KEY = 'outft.app-state.v2';

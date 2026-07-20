@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { Dimensions, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Dimensions, Easing, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -10,7 +10,8 @@ import { backendAvailable } from '../lib/supabase';
 import { uploadAndAnalyze, pollAnalysis, toDbCategory, updateOutfitMeta } from '../lib/outfitApi';
 import { deleteOutfit } from '../lib/historyApi';
 import { useApp, LatestOutfit } from '../state';
-import { Photo, PillButton, Tag } from '../ui';
+import { hapticSelect, hapticSuccess, hapticTap } from '../haptics';
+import { Photo, PillButton, pressDim, Tag } from '../ui';
 
 const BAR_WIDTHS = [1, 3, 2, 1, 2, 3, 1, 1, 2, 3, 2, 1, 3, 1, 2, 2, 3, 1, 2, 1, 3, 2, 1, 3, 1, 2, 3, 1, 2, 2];
 
@@ -31,6 +32,101 @@ function shortCode(err: string) {
   return err.split(':')[0].trim();
 }
 
+function dayKeyOf(d: Date) {
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+// Consecutive-day streak ending today, from capture dates (same rule as Home/Profile).
+function computeStreak(items: LatestOutfit[]): number {
+  const days = new Set(
+    items
+      .map((i) => new Date(i.capturedAt))
+      .filter((d) => !isNaN(d.getTime()))
+      .map((d) => dayKeyOf(d)),
+  );
+  const cursor = new Date();
+  let n = 0;
+  while (days.has(dayKeyOf(cursor))) {
+    n += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return n;
+}
+
+// Milestone lines for special streaks; a quiet default otherwise.
+function streakLine(n: number): string {
+  switch (n) {
+    case 1: return 'day one. the record begins.';
+    case 3: return 'three days. a habit takes shape.';
+    case 7: return 'one week of you.';
+    case 14: return 'two weeks. the thread holds.';
+    case 30: return 'a month, traced. remarkable.';
+    default: return `day ${n}. the record continues.`;
+  }
+}
+
+// Brief branded overlay: big serif number counting up to the new streak,
+// one italic line, auto-dismiss after ~2.2s.
+function StreakCelebration({ streak, onDone }: { streak: number; onDone: () => void }) {
+  const [shown, setShown] = useState(0);
+  const opacity = useRef(new Animated.Value(0)).current;
+  const count = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const sub = count.addListener(({ value }) => setShown(Math.round(value)));
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 260, useNativeDriver: true }),
+      Animated.timing(count, { toValue: streak, duration: 900, useNativeDriver: false }),
+    ]).start();
+    const t = setTimeout(() => {
+      Animated.timing(opacity, { toValue: 0, duration: 320, useNativeDriver: true }).start(() => onDone());
+    }, 2200);
+    return () => { clearTimeout(t); count.removeListener(sub); };
+  }, []);
+
+  return (
+    <Animated.View style={[s.celebration, { opacity }]} pointerEvents="none">
+      <Text style={s.celebrationBrand}>OUTFT.</Text>
+      <Text style={s.celebrationNum}>{shown}</Text>
+      <Text style={s.celebrationLabel}>DAY STREAK</Text>
+      <Text style={s.celebrationLine}>{streakLine(streak)}</Text>
+    </Animated.View>
+  );
+}
+
+// Elegant serif-italic lines cycled while the analysis runs, so the
+// 5–20s wait reads as intentional rather than stalled.
+const WAIT_LINES = [
+  'reading your palette…',
+  'tracing the silhouette…',
+  'finding your lane…',
+  'weighing the textures…',
+  'listening to the layers…',
+  'placing you on the map…',
+];
+
+// One aesthetics row whose bar eases in when the result appears.
+function AestheticBar({ label, pct, delay }: { label: string; pct: number; delay: number }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1, duration: 650, delay,
+      easing: Easing.out(Easing.cubic), useNativeDriver: false,
+    }).start();
+  }, [anim, delay]);
+  return (
+    <View style={s.aRow}>
+      <Text style={s.aLabel}>{label.toUpperCase()}</Text>
+      <View style={s.track}>
+        <Animated.View style={[s.fill, {
+          width: anim.interpolate({ inputRange: [0, 1], outputRange: ['0%', `${pct}%`] }),
+        }]} />
+      </View>
+      <Text style={s.aPct}>{pct}%</Text>
+    </View>
+  );
+}
+
 export default function CameraScreen() {
   const { navigate, update, showToast, outfitCount, captures } = useApp();
   const [category, setCategory] = useState('daily');
@@ -46,10 +142,36 @@ export default function CameraScreen() {
   const [outfitId, setOutfitId] = useState<string | null>(null);
   const [canRetry, setCanRetry] = useState(false);
   const [capturedAt, setCapturedAt] = useState<Date>(new Date());
+  // When a share is the first trace of the day, celebrate the new streak here.
+  const [celebrateStreak, setCelebrateStreak] = useState<number | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   // Same-photo payload kept for TRY AGAIN re-runs of the real pipeline.
   const pendingRef = useRef<{ uri: string; base64?: string | null; mt: string } | null>(null);
+
+  // Cycling wait line index while analyzing.
+  const [waitIdx, setWaitIdx] = useState(0);
+  useEffect(() => {
+    if (!analyzing) return;
+    setWaitIdx(0);
+    const t = setInterval(() => setWaitIdx((i) => (i + 1) % WAIT_LINES.length), 2000);
+    return () => clearInterval(t);
+  }, [analyzing]);
+
+  // Success haptic the moment an analysis lands.
+  useEffect(() => { if (result) hapticSuccess(); }, [result]);
+
+  // Receipt overlay slide-up + fade.
+  const overlayAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (overlayOpen) {
+      overlayAnim.setValue(0);
+      Animated.timing(overlayAnim, {
+        toValue: 1, duration: 420,
+        easing: Easing.out(Easing.cubic), useNativeDriver: true,
+      }).start();
+    }
+  }, [overlayOpen, overlayAnim]);
 
   // Real pipeline: upload → queue → poll worker. Returns true on success.
   const runRealPipeline = async (p: { uri: string; base64?: string | null; mt: string }): Promise<boolean> => {
@@ -148,6 +270,7 @@ export default function CameraScreen() {
 
   const snap = async () => {
     if (!cameraRef.current || analyzing) return;
+    hapticTap();
     try {
       const pic = await cameraRef.current.takePictureAsync({ quality: 0.6, base64: true });
       if (pic) handlePicked(pic.uri, pic.base64);
@@ -158,6 +281,7 @@ export default function CameraScreen() {
   };
 
   const upload = async () => {
+    hapticTap();
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) { showToast('photo permission needed'); return; }
@@ -216,13 +340,23 @@ export default function CameraScreen() {
       caption: trimmedCaption || undefined,
       capturedAt: capturedAt.toISOString(),
     };
+    // First trace of the day? Celebrate the streak before heading home.
+    const firstToday = !captures.some((c) => {
+      const d = new Date(c.capturedAt);
+      return !isNaN(d.getTime()) && dayKeyOf(d) === dayKeyOf(new Date());
+    });
     update({
       latestOutfit: record,
       captures: [record, ...captures],
       outfitCount: outfitCount + 1,
     });
-    showToast('trace shared');
-    navigate('home');
+    if (firstToday) {
+      setOverlayOpen(false);
+      setCelebrateStreak(computeStreak([record, ...captures]));
+    } else {
+      showToast('trace shared');
+      navigate('home');
+    }
   };
 
   const catLabel = CATEGORIES.find((c) => c.key === category)?.label ?? 'Daily';
@@ -233,7 +367,7 @@ export default function CameraScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.paper }}>
       <View style={s.topBar}>
-        <Pressable onPress={() => navigate('home')} hitSlop={12}>
+        <Pressable onPress={() => navigate('home')} hitSlop={12} style={pressDim}>
           <Text style={s.topGlyph}>×</Text>
         </Pressable>
         <Text style={s.topTitle}>outft.</Text>
@@ -265,8 +399,12 @@ export default function CameraScreen() {
           return (
             <Pressable
               key={c.key}
-              onPress={() => setCategory(c.key)}
-              style={[s.catChip, sel && { backgroundColor: colors.ink, borderColor: colors.ink }]}
+              onPress={() => { hapticSelect(); setCategory(c.key); }}
+              style={({ pressed }) => [
+                s.catChip,
+                sel && { backgroundColor: colors.ink, borderColor: colors.ink },
+                pressed && { transform: [{ scale: 0.97 }] },
+              ]}
             >
               <Text style={[s.catChipLabel, sel && { color: colors.paper }]}>{c.label}</Text>
             </Pressable>
@@ -275,20 +413,30 @@ export default function CameraScreen() {
       </ScrollView>
 
       <View style={s.shutterRow}>
-        <Pressable style={s.sideBtn} onPress={upload}>
+        <Pressable style={({ pressed }) => [s.sideBtn, pressed && { opacity: 0.55 }]} onPress={upload}>
           <Text style={s.sideGlyph}>▦</Text>
         </Pressable>
         <View style={s.halo}>
-          <Pressable style={s.shutter} onPress={snap} disabled={!camGranted} />
+          <Pressable
+            style={({ pressed }) => [s.shutter, pressed && { transform: [{ scale: 0.9 }] }]}
+            onPress={snap}
+            disabled={!camGranted}
+          />
         </View>
-        <Pressable style={s.sideBtn} onPress={() => setFacing(facing === 'back' ? 'front' : 'back')}>
+        <Pressable
+          style={({ pressed }) => [s.sideBtn, pressed && { opacity: 0.55 }]}
+          onPress={() => { hapticSelect(); setFacing(facing === 'back' ? 'front' : 'back'); }}
+        >
           <Text style={s.sideGlyph}>↻</Text>
         </Pressable>
       </View>
 
       {overlayOpen && photo ? (
-        <View style={s.overlay}>
-          <Pressable style={s.overlayClose} onPress={closeOverlay} hitSlop={12}>
+        <Animated.View style={[s.overlay, {
+          opacity: overlayAnim,
+          transform: [{ translateY: overlayAnim.interpolate({ inputRange: [0, 1], outputRange: [48, 0] }) }],
+        }]}>
+          <Pressable style={({ pressed }) => [s.overlayClose, pressed && { opacity: 0.55 }]} onPress={closeOverlay} hitSlop={12}>
             <Text style={{ fontSize: 19, color: colors.ink }}>×</Text>
           </Pressable>
           <ScrollView
@@ -304,21 +452,17 @@ export default function CameraScreen() {
             <Text style={s.metaRow}>{catLabel} · {stamp.date}</Text>
             <Text style={s.metaRow}>{stamp.time} · {stamp.daypart} window</Text>
             {analyzing ? (
-              <Text style={s.reading}>{statusText}</Text>
+              <Text style={s.reading}>
+                {statusText === 'uploading…' || statusText === 'in queue…' ? statusText : WAIT_LINES[waitIdx]}
+              </Text>
             ) : canRetry && !result ? (
               <Text style={s.reading}>analysis didn’t complete</Text>
             ) : result ? (
               <View>
                 {isDemo ? <Text style={s.demoLabel}>demo analysis</Text> : null}
                 <Text style={s.insight}>{result.insight}</Text>
-                {result.aesthetics.map((a) => (
-                  <View key={a.label} style={s.aRow}>
-                    <Text style={s.aLabel}>{a.label.toUpperCase()}</Text>
-                    <View style={s.track}>
-                      <View style={[s.fill, { width: `${a.pct}%` }]} />
-                    </View>
-                    <Text style={s.aPct}>{a.pct}%</Text>
-                  </View>
+                {result.aesthetics.map((a, i) => (
+                  <AestheticBar key={a.label} label={a.label} pct={a.pct} delay={i * 90} />
                 ))}
                 <View style={s.tagsRow}>
                   {result.tags.map((t) => <Tag key={t} label={t} />)}
@@ -356,7 +500,14 @@ export default function CameraScreen() {
             <PillButton label="retake" onPress={retake} style={{ flex: 1, paddingVertical: 11 }} />
             <PillButton label="share trace" filled onPress={share} disabled={analyzing || !result} style={{ flex: 1, paddingVertical: 11 }} />
           </View>
-        </View>
+        </Animated.View>
+      ) : null}
+
+      {celebrateStreak != null ? (
+        <StreakCelebration
+          streak={celebrateStreak}
+          onDone={() => { setCelebrateStreak(null); navigate('home'); }}
+        />
       ) : null}
     </View>
   );
@@ -425,6 +576,14 @@ const s = StyleSheet.create({
   },
   barcode: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', marginTop: 14 },
   footer: { fontFamily: fonts.sans, fontSize: 8, color: colors.faint, textAlign: 'center', marginTop: 8, letterSpacing: 1 },
+  celebration: {
+    ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.97)',
+    alignItems: 'center', justifyContent: 'center', zIndex: 20,
+  },
+  celebrationBrand: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 3, color: colors.sand },
+  celebrationNum: { fontFamily: fonts.serif, fontSize: 96, color: colors.ink, marginTop: 6, lineHeight: 104 },
+  celebrationLabel: { fontFamily: fonts.sans, fontSize: 10, letterSpacing: 3, color: colors.taupe },
+  celebrationLine: { fontFamily: fonts.serifItalic, fontSize: 17, color: colors.muted, marginTop: 14 },
   retryRow: { flexDirection: 'row', marginTop: 14, width: '100%', maxWidth: 290 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 18, width: '100%', maxWidth: 290 },
 });
