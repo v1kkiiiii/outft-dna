@@ -1,9 +1,35 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, dnaColors, fonts } from '../theme';
 import { LatestOutfit, useApp } from '../state';
 import { computeDna, fetchMyOutfits } from '../lib/historyApi';
 import { DnaWheel, Header, SectionLabel } from '../ui';
+
+// One legend row: percentage bar eases in when results appear.
+function DnaRow({ label, pct, color, delay }: { label: string; pct: number; color: string; delay: number }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1, duration: 700, delay,
+      easing: Easing.out(Easing.cubic), useNativeDriver: false,
+    }).start();
+  }, [anim, delay]);
+  return (
+    <View>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color, marginRight: 10 }} />
+        <Text style={{ flex: 1, fontFamily: fonts.sans, fontSize: 13, color: colors.muted }}>{label}</Text>
+        <Text style={{ fontFamily: fonts.serif, fontSize: 18, color: colors.ink }}>{pct}%</Text>
+      </View>
+      <View style={{ height: 2, backgroundColor: colors.line, marginTop: 6, marginLeft: 20 }}>
+        <Animated.View style={{
+          height: 2, backgroundColor: color,
+          width: anim.interpolate({ inputRange: [0, 1], outputRange: ['0%', `${pct}%`] }),
+        }} />
+      </View>
+    </View>
+  );
+}
 
 const EMPTY_WHEEL = [
   { label: 'unknown', pct: 40 },
@@ -92,11 +118,7 @@ export default function DnaScreen() {
         {hasDna && (
           <View style={{ marginTop: 24, gap: 12 }}>
             {dna.map((d, i) => (
-              <View key={d.label} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: dnaColors[i % dnaColors.length], marginRight: 10 }} />
-                <Text style={{ flex: 1, fontFamily: fonts.sans, fontSize: 13, color: colors.muted }}>{d.label}</Text>
-                <Text style={{ fontFamily: fonts.serif, fontSize: 18, color: colors.ink }}>{d.pct}%</Text>
-              </View>
+              <DnaRow key={d.label} label={d.label} pct={d.pct} color={dnaColors[i % dnaColors.length]} delay={i * 90} />
             ))}
           </View>
         )}
@@ -117,7 +139,7 @@ export default function DnaScreen() {
 
         <View style={{ marginTop: 24 }}>
           {rows.map((r) => (
-            <Pressable key={r.label} style={s.miniRow} onPress={r.go}>
+            <Pressable key={r.label} style={({ pressed }) => [s.miniRow, pressed && { opacity: 0.55 }]} onPress={r.go}>
               <Text style={{ flex: 1, fontFamily: fonts.sans, fontSize: 12, color: colors.ink, marginRight: 12 }}>{r.label}</Text>
               <Text style={{ fontSize: 16, color: colors.sand }}>›</Text>
             </Pressable>

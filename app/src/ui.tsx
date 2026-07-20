@@ -2,7 +2,16 @@ import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { colors, dnaColors, fonts } from './theme';
+import { hapticTap } from './haptics';
 import { useApp, ScreenKey } from './state';
+
+// Subtle press-scale used across primary pills and cards.
+export const pressScale = ({ pressed }: { pressed: boolean }) =>
+  pressed ? { transform: [{ scale: 0.97 }] as any } : null;
+
+// Gentler pressed state for rows and small tappables.
+export const pressDim = ({ pressed }: { pressed: boolean }) =>
+  pressed ? { opacity: 0.55 } : null;
 
 export function CommentIcon({ color = colors.ink, size = 18 }: { color?: string; size?: number }) {
   return (
@@ -30,7 +39,7 @@ export function Avatar({ initials, color, size = 36 }: { initials: string; color
 
 export function Tag({ label, filled, onPress }: { label: string; filled?: boolean; onPress?: () => void }) {
   return (
-    <Pressable onPress={onPress} disabled={!onPress} style={[s.tag, filled && s.tagFilled]}>
+    <Pressable onPress={onPress} disabled={!onPress} style={({ pressed }) => [s.tag, filled && s.tagFilled, onPress && pressed && { opacity: 0.55 }]}>
       <Text style={[s.tagText, filled && { color: colors.paper }]}>{label}</Text>
     </Pressable>
   );
@@ -57,12 +66,12 @@ export function Polaroid({ uri, tone, meta, number, width = 96, onPress, tiltInd
 }) {
   const tilts = ['-1.1deg', '0.8deg', '-0.7deg'];
   return (
-    <Pressable onPress={onPress} disabled={!onPress} style={{
+    <Pressable onPress={onPress} disabled={!onPress} style={({ pressed }) => ({
       backgroundColor: colors.paper, padding: 7, paddingBottom: 9, width,
-      transform: [{ rotate: tilts[tiltIndex % 3] }],
+      transform: [{ rotate: tilts[tiltIndex % 3] }, { scale: onPress && pressed ? 0.97 : 1 }],
       shadowColor: colors.ink, shadowOffset: { width: 0, height: 9 }, shadowOpacity: 0.25, shadowRadius: 11,
       elevation: 4,
-    }}>
+    })}>
       <Photo uri={uri} tone={tone} style={{ width: '100%', aspectRatio: 3 / 4 }} />
       {meta ? <Text style={s.polMeta}>{meta}</Text> : null}
       {number ? <Text style={s.polNum}>{number}</Text> : null}
@@ -145,21 +154,22 @@ export function BottomNav() {
   const homeActive = ['home', 'messages', 'activity'].includes(screen);
   const twinsActive = ['twins', 'otherProfile'].includes(screen);
   const profileActive = ['profile', 'dna', 'premium', 'wrapped'].includes(screen);
+  const go = (key: ScreenKey) => { hapticTap(); navigate(key); };
   return (
     <View style={s.bnav}>
-      <Pressable style={s.nb} onPress={() => navigate('home')}>
+      <Pressable style={({ pressed }) => [s.nb, pressed && { opacity: 0.55 }]} onPress={() => go('home')}>
         <View style={s.navIcon}><HomeIcon color={homeActive ? colors.ink : colors.faint} /></View>
         <Text style={[s.nbLabel, homeActive && { color: colors.ink }]}>HOME</Text>
       </Pressable>
-      <Pressable style={s.nb} onPress={() => navigate('camera')}>
+      <Pressable style={({ pressed }) => [s.nb, pressed && { opacity: 0.55 }]} onPress={() => go('camera')}>
         <View style={s.navIcon}><CreateIcon color={screen === 'camera' ? colors.ink : colors.faint} /></View>
         <Text style={[s.nbLabel, screen === 'camera' && { color: colors.ink }]}>CREATE</Text>
       </Pressable>
-      <Pressable style={s.nb} onPress={() => navigate('twins')}>
+      <Pressable style={({ pressed }) => [s.nb, pressed && { opacity: 0.55 }]} onPress={() => go('twins')}>
         <View style={s.navIcon}><TwinsIcon color={twinsActive ? colors.ink : colors.faint} /></View>
         <Text style={[s.nbLabel, twinsActive && { color: colors.ink }]}>TWINS</Text>
       </Pressable>
-      <Pressable style={s.nb} onPress={() => navigate('profile')}>
+      <Pressable style={({ pressed }) => [s.nb, pressed && { opacity: 0.55 }]} onPress={() => go('profile')}>
         <View style={s.navIcon}><PersonIcon color={profileActive ? colors.ink : colors.faint} /></View>
         <Text style={[s.nbLabel, profileActive && { color: colors.ink }]}>PROFILE</Text>
       </Pressable>
@@ -183,11 +193,11 @@ export function Header({ title, onBack, onClose, right }: {
   return (
     <View style={s.header}>
       {onBack ? (
-        <Pressable onPress={onBack} hitSlop={12}><Text style={s.hIcon}>←</Text></Pressable>
+        <Pressable onPress={onBack} hitSlop={12} style={pressDim}><Text style={s.hIcon}>←</Text></Pressable>
       ) : <View style={{ width: 24 }} />}
       <Text style={s.hTitle}>{title ?? 'outft.'}</Text>
       {onClose ? (
-        <Pressable onPress={onClose} hitSlop={12}><Text style={s.hIcon}>✕</Text></Pressable>
+        <Pressable onPress={onClose} hitSlop={12} style={pressDim}><Text style={s.hIcon}>✕</Text></Pressable>
       ) : right ?? <View style={{ width: 24 }} />}
     </View>
   );
@@ -197,12 +207,13 @@ export function PillButton({ label, filled, light, onPress, style, disabled }: {
   label: string; filled?: boolean; light?: boolean; onPress?: () => void; style?: ViewStyle; disabled?: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} disabled={disabled} style={[
+    <Pressable onPress={onPress} disabled={disabled} style={({ pressed }) => [
       s.pill,
       filled && { backgroundColor: colors.ink, borderColor: colors.ink },
       light && { backgroundColor: colors.paper, borderColor: colors.paper },
       disabled && { opacity: 0.4 },
       style,
+      pressed && { transform: [{ scale: 0.97 }] },
     ]}>
       <Text style={[
         s.pillText,
