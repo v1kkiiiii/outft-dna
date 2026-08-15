@@ -54,9 +54,6 @@
       "resizeMode": "contain",
       "backgroundColor": "#F4F1EA"
     },
-    "experiments": {
-      "baseUrl": "/demo/app"
-    },
     "extra": {
       "eas": {
         "projectId": "225fce5b-31d5-47b4-87e9-a7ab13c1209f"
