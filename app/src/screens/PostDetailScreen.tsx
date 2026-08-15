@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as MediaLibrary from 'expo-media-library';
 import { colors, fonts } from '../theme';
 import { affiliateUrl, BRAND_PICKS, ECHO_POSTS, Post, POSTS, postIdxFromId } from '../data';
 import { LatestOutfit, useApp } from '../state';
@@ -69,6 +70,36 @@ export default function PostDetailScreen() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const savedIn = isPostSaved(post);
 
+  const saveToCameraRoll = async () => {
+    if (!post.photoUri) {
+      showToast('no photo to save');
+      return;
+    }
+    try {
+      const perm = await MediaLibrary.requestPermissionsAsync();
+      if (!perm.granted) {
+        showToast('photo library permission needed');
+        return;
+      }
+      await MediaLibrary.saveToLibraryAsync(post.photoUri);
+      showToast('saved to camera roll');
+    } catch (e) {
+      showToast('could not save photo');
+      console.warn('outft: save to camera roll failed:', e);
+    }
+  };
+
+  const openOptions = () => {
+    const buttons: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[] = [
+      { text: 'Save photo to camera roll', onPress: saveToCameraRoll },
+    ];
+    if (isMine) {
+      buttons.push({ text: 'Delete trace', style: 'destructive', onPress: confirmDelete });
+    }
+    buttons.push({ text: 'Cancel', style: 'cancel' });
+    Alert.alert(post.handle, undefined, buttons);
+  };
+
   const canFindSimilar = isMine && !!serverId && UUID_RE.test(serverId) && backendAvailable();
   const [similarLoading, setSimilarLoading] = useState(false);
   const [similarMatches, setSimilarMatches] = useState<SimilarMatch[] | null>(null);
@@ -129,7 +160,7 @@ export default function PostDetailScreen() {
         title={post.handle}
         onBack={goBack}
         right={
-          <Pressable onPress={() => showToast('options')} hitSlop={12}>
+          <Pressable onPress={openOptions} hitSlop={12}>
             <Text style={{ fontSize: 19, color: colors.ink }}>⋯</Text>
           </Pressable>
         }

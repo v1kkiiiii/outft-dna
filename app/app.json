@@ -47,6 +47,12 @@
           "cameraPermission": "OUTFT uses the camera so you can capture your outfit."
         }
       ],
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "OUTFT saves photos and receipts to your camera roll when you choose to."
+        }
+      ],
       "expo-secure-store"
     ],
     "splash": {

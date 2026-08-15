@@ -10,8 +10,8 @@ Frozen artifacts and their versions:
 | Artifact | Version |
 | --- | --- |
 | Analysis output schema | `schemaVersion: "1.0"` (OutfitAnalysisV1) |
-| Prompt | `promptVersion: "outft-analysis-v1"` |
-| Aesthetic taxonomy | `aesthetic-taxonomy-v1` |
+| Prompt | `promptVersion: "outft-analysis-v2"` |
+| Aesthetic taxonomy | `aesthetic-taxonomy-v2` |
 | Garment category taxonomy | `garment-taxonomy-v1` |
 | Style DNA aggregation algorithm | `dna-agg-v1` |
 
@@ -35,7 +35,7 @@ type AnalyzeOutfit = (input: AnalyzeOutfitInput) => Promise<OutfitAnalysisV1>;
 {
   "schemaVersion": "1.0",
   "modelVersion": "provider-model-version",
-  "promptVersion": "outft-analysis-v1",
+  "promptVersion": "outft-analysis-v2",
   "garments": [{ "category": "outerwear", "label": "blazer", "confidence": 0.92 }],
   "colors": [{ "hex": "#D8C9B5", "label": "warm cream", "weight": 0.34 }],
   "styleTraits": [{ "label": "structured", "confidence": 0.88 }],
@@ -55,11 +55,11 @@ Validation runs in the worker after the provider responds and before any databas
 | --- | --- |
 | `schemaVersion` | Required. Must equal `"1.0"` exactly. |
 | `modelVersion` | Required, non-empty string. The worker stamps this from the adapter configuration; a provider-supplied value never overrides it. |
-| `promptVersion` | Required. Must equal `"outft-analysis-v1"` exactly (stamped by the worker from the prompt registry). |
+| `promptVersion` | Required. Must equal `"outft-analysis-v2"` exactly (stamped by the worker from the prompt registry). |
 | `garments` | Required array, 1–8 items. Each item: `category` must be a canonical garment-taxonomy-v1 value (Section 2.2); `label` non-empty string ≤ 40 chars, lowercase, drawn from provider output after mapping (Section 2.3); `confidence` number in [0, 1]. Duplicate (category, label) pairs are rejected. |
 | `colors` | Required array, 1–6 items. Each item: `hex` matches `#RRGGBB` uppercase-or-lowercase hex (normalized to uppercase on save); `label` non-empty plain-language color name ≤ 30 chars; `weight` number in [0, 1]. Weights should sum to ≤ 1.0 + 0.05 tolerance; ordering is descending by weight. |
 | `styleTraits` | Required array, 2–6 items. Each item: `label` non-empty string ≤ 30 chars, lowercase descriptor (e.g. "structured", "wide leg", "neutral palette"); `confidence` number in [0, 1]. No duplicates. Trait labels must pass the banned-language screen (Section 3.4). |
-| `styleScores` | Required object with exactly 4 keys. Every key must be a canonical aesthetic-taxonomy-v1 label (Section 2.1); unknown keys are mapped or the payload is rejected (Section 2.3). Values are integers (or fixed-precision numbers) in [0, 100]. Values must sum to 100 within a 0.5 tolerance before final normalization; after normalization the stored values sum to exactly 100. Zero-value entries are disallowed — the four keys are the top four. |
+| `styleScores` | Required object with exactly 4 keys. Every key must be a canonical aesthetic-taxonomy-v2 label (Section 2.1); unknown keys are mapped or the payload is rejected (Section 2.3). Values are integers (or fixed-precision numbers) in [0, 100]. Values must sum to 100 within a 0.5 tolerance before final normalization; after normalization the stored values sum to exactly 100. Zero-value entries are disallowed — the four keys are the top four. |
 | `confidence` | Required number in [0, 1]. Overall analysis confidence. Drives the low-confidence UX rule (Section 5.3). |
 | `insight` | Required string, 1–140 characters, single sentence, plain text (no markdown, emoji, or newlines). Must contain no disallowed evaluative language (Section 3.4) and be safe for direct display. |
 | Raw model output | Omitted by default. May be stored only briefly under an explicit debugging policy; never in logs, analytics, or audit events (PRD §10.3, §15.1, §17.2). |
@@ -75,22 +75,13 @@ General rules:
 
 ## 2. Versioned taxonomies (v1)
 
-### 2.1 Aesthetic taxonomy — `aesthetic-taxonomy-v1`
+### 2.1 Aesthetic taxonomy — `aesthetic-taxonomy-v2`
 
-Exactly ten canonical labels. Casing is canonical and case-sensitive in stored data (sentence case as shown, matching PRD §10.2 and the current prompt):
+478 canonical labels grouped into 26 style families (LUXURY / HIGH FASHION, CLEAN / MINIMAL, PREPPY / CLASSIC AMERICAN, STREETWEAR / URBAN, SPORTY / ATHLETIC, COASTAL / NATURE, FEMININE / ROMANTIC, DARK / ALTERNATIVE, RETRO / VINTAGE, CREATIVE / ARTSY, ACADEMIC, JAPANESE SUBCULTURES, KOREAN, CHINESE, SOUTH ASIAN, AFRICAN / AFRODIASPORA, LATIN / LATINX, MIDDLE EASTERN, INTERNET / DIGITAL NATIVE, SUBCULTURE SPECIFIC, OCCUPATION / LIFESTYLE, OCCASION, SITUATIONAL MICRO, SCENE / EMO ERA, TWEE / INDIE, MISCELLANEOUS NICHE). Casing is canonical and case-sensitive in stored data (sentence case, matching the current prompt).
 
-1. `Quiet luxury`
-2. `Old money`
-3. `Scandi`
-4. `Coastal`
-5. `Eclectic`
-6. `Minimalist`
-7. `Athleisure`
-8. `Bold`
-9. `Vintage`
-10. `Classic`
+The full enumerated list is the single source of truth in code — `AESTHETIC_TAXONOMY_V1` in `worker/src/schema.ts` and `AESTHETIC_TAXONOMY_PROMPT_LIST` in `worker/src/prompt.ts` (kept in sync; the grouping is embedded in the prompt purely to help the model narrow its search, a `styleScores` top-4 may span any families). Do not hand-maintain a second copy of the list in this document — it will drift.
 
-`styleScores` keys, DNA snapshot score keys, and all UI aesthetic displays draw exclusively from this list. Adding, removing, or renaming a label creates `aesthetic-taxonomy-v2` and a new prompt version; historical analyses remain immutable under v1.
+`styleScores` keys, DNA snapshot score keys, and all UI aesthetic displays draw exclusively from this list. v2 replaced the original 10-label `aesthetic-taxonomy-v1` (superseded, no longer used) in prompt version `outft-analysis-v2`. Adding, removing, or renaming a label creates `aesthetic-taxonomy-v3` and a new prompt version; historical analyses remain immutable under the version stamped on them at creation.
 
 ### 2.2 Garment category taxonomy — `garment-taxonomy-v1`
 
@@ -113,8 +104,8 @@ Providers drift; the taxonomy does not. The worker applies this deterministic po
 
 1. **Exact match** (after trimming whitespace): accept.
 2. **Case-insensitive match** to a canonical label: normalize to canonical casing and accept (e.g. `"quiet luxury"` → `Quiet luxury`, `"Footwear"` → `footwear`).
-3. **Alias map** (versioned with the taxonomy): a maintained, reviewed table of known provider synonyms → canonical labels. v1 seed aliases:
-   - Aesthetics: `Scandinavian`/`Nordic` → `Scandi`; `Minimal`/`Minimalism` → `Minimalist`; `Athletic`/`Sporty`/`Sportswear` → `Athleisure`; `Retro` → `Vintage`; `Timeless`/`Traditional` → `Classic`; `Stealth wealth` → `Quiet luxury`; `Preppy` → `Old money`; `Maximalist`/`Statement` → `Bold`; `Beachy`/`Nautical` → `Coastal`; `Bohemian`/`Boho`/`Mixed` → `Eclectic`.
+3. **Alias map** (versioned with the taxonomy): a maintained, reviewed table of known provider synonyms → canonical labels.
+   - Aesthetics: empty at v2 launch — the 478-label taxonomy is specific enough that guessing synonyms risks silently mapping to the wrong family. Entries are added only for confirmed provider-output variants observed in production (see `AESTHETIC_ALIASES` in `worker/src/schema.ts`).
    - Garment categories: `jacket`/`coat` (as category) → `outerwear`; `shirt`/`blouse`/`knitwear` (as category) → `top`; `pants`/`trousers`/`skirt` (as category) → `bottom`; `shoes` → `footwear`; `jewelry`/`belt`/`scarf`/`eyewear` (as category) → `accessory`; `purse`/`handbag`/`backpack` (as category) → `bag`; `hat`/`cap`/`beanie` (as category) → `headwear`.
 4. **Rejection**: any label not resolved by steps 1–3 fails the payload with `ANALYSIS_INVALID_OUTPUT`. The unresolved label string (label text only — never image data or full raw output) is recorded in worker telemetry for alias-map review. The worker never invents a mapping at runtime; the alias map changes only through a reviewed release.
 
@@ -122,9 +113,9 @@ If mapping produces duplicate `styleScores` keys (two provider labels mapping to
 
 ---
 
-## 3. Production prompt spec — `outft-analysis-v1`
+## 3. Production prompt spec — `outft-analysis-v2`
 
-Evolves the prototype prompt in `/Users/sahanalydia/Documents/docs/outft-dna/server.js` (which outputs only `aesthetics`/`tags`/`insight`) to emit the full OutfitAnalysisV1 payload. This section specifies prompt content requirements, not literal prompt text; the frozen prompt text lives in the worker's prompt registry keyed by `outft-analysis-v1`.
+Evolves the prototype prompt in `/Users/sahanalydia/Documents/docs/outft-dna/server.js` (which outputs only `aesthetics`/`tags`/`insight`) to emit the full OutfitAnalysisV1 payload. This section specifies prompt content requirements, not literal prompt text; the frozen prompt text lives in the worker's prompt registry keyed by `outft-analysis-v2`.
 
 ### 3.1 Role and framing
 
@@ -139,7 +130,7 @@ The prompt must instruct the model to produce every OutfitAnalysisV1 content fie
 - **`garments`** — each visible garment as `{category, label, confidence}`; `category` restricted to the eight garment-taxonomy-v1 values, listed verbatim in the prompt; `label` a specific lowercase garment name; `confidence` 0–1 reflecting visual certainty; at most 8 garments, most prominent first.
 - **`colors`** — 3–6 dominant outfit colors as `{hex, label, weight}`; `hex` a #RRGGBB value sampled from the garment surfaces (not background); `label` a plain-language name (e.g. "warm cream"); `weight` the approximate share of the outfit's visual area, weights descending.
 - **`styleTraits`** — 2–6 concise lowercase descriptors of silhouette, texture, palette, or construction (e.g. "structured", "wide leg", "neutral palette"); each with `confidence` 0–1. Descriptors describe the clothes, never the person.
-- **`styleScores`** — the top 4 aesthetics from the ten aesthetic-taxonomy-v1 labels, listed verbatim in the prompt exactly as in Section 2.1, with integer percentages summing to exactly 100.
+- **`styleScores`** — the top 4 aesthetics from the aesthetic-taxonomy-v2 labels, listed verbatim in the prompt exactly as in Section 2.1, with integer percentages summing to exactly 100.
 - **`confidence`** — a single 0–1 value for the overall reading; explicitly instruct lower values for partial framing, occlusion, poor light, or ambiguous styling.
 - **`insight`** — one sentence, maximum 140 characters, about the outfit's dominant aesthetic quality; warm, editorial, specific; describes the outfit, not the wearer's worth.
 
@@ -294,7 +285,7 @@ Inputs: all eligible analyses in the evidence window (P0 window = all ready, non
 
 1. **Normalize per trace**: for each eligible analysis, normalize its four `styleScores` values to sum to exactly 100.
 2. **Equal weights**: every trace weighs equally in P0 — no recency, category, or confidence weighting.
-3. **Mean by label**: compute the arithmetic mean per aesthetic-taxonomy-v1 label across all eligible traces (labels absent from a trace contribute 0 for that trace).
+3. **Mean by label**: compute the arithmetic mean per aesthetic-taxonomy-v2 label across all eligible traces (labels absent from a trace contribute 0 for that trace).
 4. **Top four**: retain the four labels with the highest means.
 5. **Renormalize**: scale the retained four to sum to exactly 100.
 6. **Signature colors**: clustered normalized color values with frequency and recency — adopted **only after the simple baseline is validated**; the P0 baseline ships without the clustering enhancement.

@@ -3,6 +3,8 @@ import { Animated, Dimensions, Easing, Linking, Pressable, ScrollView, StyleShee
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as MediaLibrary from 'expo-media-library';
+import { captureRef } from 'react-native-view-shot';
 import { colors, fonts } from '../theme';
 import { AnalysisResult, CATEGORIES } from '../data';
 import { analyzeOutfitReal } from '../analyze';
@@ -146,6 +148,8 @@ export default function CameraScreen() {
   const [celebrateStreak, setCelebrateStreak] = useState<number | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+  const receiptRef = useRef<View>(null);
+  const [savingReceipt, setSavingReceipt] = useState(false);
   // Same-photo payload kept for TRY AGAIN re-runs of the real pipeline.
   const pendingRef = useRef<{ uri: string; base64?: string | null; mt: string } | null>(null);
 
@@ -359,6 +363,26 @@ export default function CameraScreen() {
     }
   };
 
+  const saveReceipt = async () => {
+    if (!receiptRef.current || savingReceipt) return;
+    setSavingReceipt(true);
+    try {
+      const perm = await MediaLibrary.requestPermissionsAsync();
+      if (!perm.granted) {
+        showToast('photo library permission needed');
+        return;
+      }
+      const uri = await captureRef(receiptRef, { format: 'png', quality: 1 });
+      await MediaLibrary.saveToLibraryAsync(uri);
+      showToast('receipt saved to camera roll');
+    } catch (e) {
+      showToast('could not save receipt');
+      console.warn('outft: save receipt failed:', e);
+    } finally {
+      setSavingReceipt(false);
+    }
+  };
+
   const catLabel = CATEGORIES.find((c) => c.key === category)?.label ?? 'Daily';
   const stamp = receiptStamp(capturedAt);
 
@@ -444,7 +468,7 @@ export default function CameraScreen() {
             contentContainerStyle={{ alignItems: 'center', paddingVertical: 8 }}
             showsVerticalScrollIndicator={false}
           >
-          <View style={s.card}>
+          <View style={s.card} ref={receiptRef} collapsable={false}>
             <Text style={s.brand}>OUTFT.</Text>
             <Text style={s.recordNo}>fit of record · no. {captures.length + 1}</Text>
             <Photo uri={photo} style={{ width: '100%', aspectRatio: 3 / 4, marginTop: 10 }} />
@@ -495,6 +519,11 @@ export default function CameraScreen() {
             <View style={s.retryRow}>
               <PillButton label="try again" onPress={retryPipeline} style={{ flex: 1, paddingVertical: 11 }} />
             </View>
+          ) : null}
+          {result ? (
+            <Pressable onPress={saveReceipt} disabled={savingReceipt} hitSlop={8} style={{ marginTop: 12 }}>
+              <Text style={s.saveReceiptText}>{savingReceipt ? 'saving…' : 'save receipt to camera roll'}</Text>
+            </Pressable>
           ) : null}
           <View style={s.actions}>
             <PillButton label="retake" onPress={retake} style={{ flex: 1, paddingVertical: 11 }} />
@@ -585,5 +614,9 @@ const s = StyleSheet.create({
   celebrationLabel: { fontFamily: fonts.sans, fontSize: 10, letterSpacing: 3, color: colors.taupe },
   celebrationLine: { fontFamily: fonts.serifItalic, fontSize: 17, color: colors.muted, marginTop: 14 },
   retryRow: { flexDirection: 'row', marginTop: 14, width: '100%', maxWidth: 290 },
+  saveReceiptText: {
+    fontFamily: fonts.sans, fontSize: 10, letterSpacing: 1, color: colors.taupe,
+    textAlign: 'center', textDecorationLine: 'underline',
+  },
   actions: { flexDirection: 'row', gap: 10, marginTop: 18, width: '100%', maxWidth: 290 },
 });
