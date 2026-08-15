@@ -5,6 +5,7 @@ import { affiliateUrl, BRAND_PICKS, ECHO_POSTS, Post, POSTS, postIdxFromId } fro
 import { LatestOutfit, useApp } from '../state';
 import { backendAvailable } from '../lib/supabase';
 import { deleteOutfit, fetchMyOutfitById } from '../lib/historyApi';
+import { findSimilarOutfits, SimilarMatch } from '../lib/similarApi';
 import { Avatar, CommentIcon, Header, Photo, Rule, SectionLabel, Tag } from '../ui';
 import { SaveSheet } from '../ui-save-sheet';
 
@@ -68,6 +69,28 @@ export default function PostDetailScreen() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const savedIn = isPostSaved(post);
 
+  const canFindSimilar = isMine && !!serverId && UUID_RE.test(serverId) && backendAvailable();
+  const [similarLoading, setSimilarLoading] = useState(false);
+  const [similarMatches, setSimilarMatches] = useState<SimilarMatch[] | null>(null);
+
+  const onFindSimilar = async () => {
+    if (!canFindSimilar) {
+      showToast('finding brands that match this aesthetic…');
+      navigate('twins');
+      return;
+    }
+    setSimilarLoading(true);
+    setSimilarMatches(null);
+    const result = await findSimilarOutfits(serverId!);
+    setSimilarLoading(false);
+    if (!result.ok) {
+      showToast('could not find similar traces — try again');
+      return;
+    }
+    setSimilarMatches(result.matches);
+    if (result.matches.length === 0) showToast('no close matches in your traces yet');
+  };
+
   const onBookmark = () => {
     if (savedIn) {
       unsavePost(post, savedIn);
@@ -86,6 +109,13 @@ export default function PostDetailScreen() {
     tone: '#DFDFDF', photoUri: c.photoUri,
     serverId: c.id,
   } as Post & { serverId: string });
+
+  const similarPosts: (Post & { why: string; serverId: string })[] = (similarMatches ?? [])
+    .map((m) => {
+      const c = captures.find((cap) => cap.id === m.outfitId);
+      return c ? { ...captureToPost(c), why: m.why, serverId: c.id } : null;
+    })
+    .filter((p): p is Post & { why: string; serverId: string } => p !== null);
 
   const openProfile = () => {
     if (post.handle !== '@you') {
@@ -132,12 +162,24 @@ export default function PostDetailScreen() {
               only (session-local) like state. Demo posts keep their counts. */}
           {!isMine && <Text style={s.likes}>{post.likes + (liked ? 1 : 0)} likes</Text>}
 
-          <Pressable
-            style={s.findSimilarBtn}
-            onPress={() => { showToast('finding brands that match this aesthetic…'); navigate('twins'); }}
-          >
-            <Text style={s.findSimilarText}>FIND SIMILAR</Text>
+          <Pressable style={s.findSimilarBtn} onPress={onFindSimilar} disabled={similarLoading}>
+            <Text style={s.findSimilarText}>{similarLoading ? 'FINDING…' : 'FIND SIMILAR'}</Text>
           </Pressable>
+
+          {canFindSimilar && similarPosts.length > 0 && (
+            <View style={{ marginTop: 14 }}>
+              {similarPosts.map((p) => (
+                <Pressable
+                  key={p.serverId}
+                  style={s.similarRow}
+                  onPress={() => navigate('postDetail', { post: p })}
+                >
+                  <Photo uri={p.photoUri} tone={p.tone} style={{ width: 48, height: 60, borderRadius: 6 }} />
+                  <Text style={s.similarWhy} numberOfLines={2}>{p.why}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
 
           <View style={s.dnaCard}>
             <SectionLabel>OUTFIT DNA</SectionLabel>
@@ -213,6 +255,8 @@ const s = StyleSheet.create({
     alignItems: 'center', marginTop: 14,
   },
   findSimilarText: { fontFamily: fonts.sansMedium, fontSize: 11, letterSpacing: 2, color: colors.ink },
+  similarRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
+  similarWhy: { flex: 1, fontFamily: fonts.serifItalic, fontSize: 13, color: colors.muted },
   dnaCard: { backgroundColor: '#F7F7F7', borderRadius: 12, padding: 15, marginTop: 16 },
   dnaText: { fontFamily: fonts.serifItalic, fontSize: 15, color: colors.ink, marginTop: 6 },
   shopBtn: {
