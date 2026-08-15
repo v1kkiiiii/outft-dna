@@ -5,12 +5,11 @@ import { colors, fonts } from '../theme';
 import { LatestOutfit, useApp } from '../state';
 import { fetchMyOutfits } from '../lib/historyApi';
 import { BADGES, CATEGORIES, Post, postIdxFromId } from '../data';
-import { Photo, PillButton, Polaroid, SectionLabel, Tag } from '../ui';
+import { initialsFrom, Photo, PillButton, Polaroid, SectionLabel, Tag } from '../ui';
 
 const TABS = ['Trace', 'Saves', 'Backlog', 'Badges'] as const;
 type TabKey = (typeof TABS)[number];
 
-const BOARD_NAMES = ['Night out', 'Work', 'Gym', 'Inspo'];
 const BADGE_GLYPHS = ['✦', '◆', '○', '◇', '✧', '★'];
 const GROUPINGS = ['occasions', 'months'] as const;
 
@@ -65,7 +64,7 @@ export default function ProfileScreen() {
   const syncedItems = serverItems.filter((i) => !localIds.has(i.id));
 
   const captureToPost = (c: LatestOutfit): Post => ({
-    idx: postIdxFromId(c.id), handle: '@you', ava: 'EV', color: '#CDB89B',
+    idx: postIdxFromId(c.id), handle: '@you', ava: initialsFrom(profileName), avatarUri, color: '#CDB89B',
     date: new Date(c.capturedAt).toLocaleDateString(),
     caption: c.caption ?? c.result.insight,
     tags: c.result.tags.slice(0, 2), likes: 0, dna: c.result.insight,
@@ -134,6 +133,7 @@ export default function ProfileScreen() {
   }, [merged, latestOutfit]);
 
   const savedFlat = Object.values(savedPosts).flat();
+  const collectionNames = Object.keys(savedPosts);
 
   // Backlog groupings from real items only.
   const byCategory = useMemo(() => {
@@ -212,7 +212,7 @@ export default function ProfileScreen() {
           ) : (
             <View style={[st.avatarImg, { backgroundColor: '#CDB89B', alignItems: 'center', justifyContent: 'center' }]}>
               <Text style={{ fontFamily: fonts.sansMedium, fontSize: 22, color: colors.ink }}>
-                {profileName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+                {initialsFrom(profileName)}
               </Text>
             </View>
           )}
@@ -292,22 +292,24 @@ export default function ProfileScreen() {
 
       {tab === 'Saves' && (
         <View style={{ paddingTop: 2 }}>
-          <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 22, paddingVertical: 12 }}>
-            {BOARD_NAMES.map((name) => (
-              <Pressable
-                key={name}
-                onPress={() => navigate('collection', { collectionName: name })}
-                style={st.boardChip}
-              >
-                <Text style={st.boardChipText}>
-                  {name} · {(savedPosts[name] ?? []).length}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          {collectionNames.length > 0 && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 22, paddingVertical: 12 }}>
+              {collectionNames.map((name) => (
+                <Pressable
+                  key={name}
+                  onPress={() => navigate('collection', { collectionName: name })}
+                  style={st.boardChip}
+                >
+                  <Text style={st.boardChipText}>
+                    {name} · {(savedPosts[name] ?? []).length}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
           {savedFlat.length === 0 ? (
             <Text style={{ fontFamily: fonts.serifItalic, fontSize: 16, color: colors.ink, textAlign: 'center', paddingHorizontal: 22, paddingVertical: 40 }}>
-              Nothing saved yet. Bookmark looks you love.
+              Nothing saved yet. Bookmark a look to create your first collection.
             </Text>
           ) : (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>

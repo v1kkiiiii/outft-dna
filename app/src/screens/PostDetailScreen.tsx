@@ -6,11 +6,11 @@ import { LatestOutfit, useApp } from '../state';
 import { backendAvailable } from '../lib/supabase';
 import { deleteOutfit, fetchMyOutfitById } from '../lib/historyApi';
 import { findSimilarOutfits, SimilarMatch } from '../lib/similarApi';
-import { Avatar, CommentIcon, Header, Photo, Rule, SectionLabel, Tag } from '../ui';
+import { Avatar, BookmarkIcon, CommentIcon, Header, initialsFrom, Photo, Rule, SectionLabel, Tag } from '../ui';
 import { SaveSheet } from '../ui-save-sheet';
 
 export default function PostDetailScreen() {
-  const { params, goBack, navigate, showToast, isPostSaved, unsavePost, captures, update } = useApp();
+  const { params, goBack, navigate, showToast, isPostSaved, unsavePost, captures, update, avatarUri, profileName } = useApp();
   const post = params.post ?? POSTS[0];
   const isMine = post.handle === '@you';
   const serverId = (post as { serverId?: string }).serverId;
@@ -102,7 +102,7 @@ export default function PostDetailScreen() {
 
   // Map one of the user's real captures to the Post shape for a thumbnail tile.
   const captureToPost = (c: LatestOutfit): Post => ({
-    idx: postIdxFromId(c.id), handle: '@you', ava: 'EV', color: '#CDB89B',
+    idx: postIdxFromId(c.id), handle: '@you', ava: initialsFrom(profileName), avatarUri, color: '#CDB89B',
     date: new Date(c.capturedAt).toLocaleDateString(),
     caption: c.caption ?? c.result.insight,
     tags: c.result.tags.slice(0, 2), likes: 0, dna: c.result.insight,
@@ -138,7 +138,7 @@ export default function PostDetailScreen() {
         <Photo uri={post.photoUri} tone={post.tone} style={{ width: '100%', aspectRatio: 4 / 5 }} />
         <View style={{ paddingHorizontal: 22 }}>
           <Pressable style={s.handleRow} onPress={openProfile}>
-            <Avatar initials={post.ava} color={post.color} size={36} />
+            <Avatar initials={post.ava} color={post.color} uri={isMine ? avatarUri : post.avatarUri} size={36} />
             <Text style={s.handle}>{post.handle}</Text>
             <Text style={s.date}>{post.date}</Text>
           </Pressable>
@@ -155,7 +155,7 @@ export default function PostDetailScreen() {
               <CommentIcon size={19} />
             </Pressable>
             <Pressable onPress={onBookmark} hitSlop={8}>
-              <Text style={{ fontSize: 18, color: colors.ink }}>{savedIn ? '▣' : '▢'}</Text>
+              <BookmarkIcon size={18} filled={!!savedIn} />
             </Pressable>
           </View>
           {/* Own posts have no fake engagement numbers — the heart above is the

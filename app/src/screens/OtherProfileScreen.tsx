@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
 import { useApp } from '../state';
 import { PEOPLE } from '../data';
-import { Avatar, CommentIcon, DnaWheel, Photo, SectionLabel, Tag } from '../ui';
+import { Avatar, BookmarkIcon, CommentIcon, DnaWheel, Photo, SectionLabel, Tag } from '../ui';
 
 const LIGHT = ['#FFFFFF', '#F0EBE3', '#E8D8C4', '#D8CFC4', '#E8E8E8'];
 
@@ -120,7 +120,7 @@ export default function OtherProfileScreen() {
           <View style={{ flexDirection: 'row', gap: 16 }}>
             <Text style={{ fontSize: 15, color: colors.ink }}>♡</Text>
             <CommentIcon size={16} />
-            <Text style={{ fontSize: 15, color: colors.ink }}>▢</Text>
+            <BookmarkIcon size={15} />
           </View>
         </Pressable>
       </View>

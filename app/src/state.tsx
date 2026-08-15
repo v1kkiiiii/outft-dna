@@ -34,8 +34,7 @@ interface PersistedState {
   latestOutfit: LatestOutfit | null;
   following: string[];
   isPremium: boolean;
-  collections: Record<string, number>; // board name -> seed count from the demo
-  savedPosts: Record<string, Post[]>; // board name -> posts the user actually saved
+  savedPosts: Record<string, Post[]>; // user-created collection name -> saved posts
   captures: LatestOutfit[]; // every analyzed outfit, newest first
   remindersEnabled: boolean; // daily trace reminder notifications
 }
@@ -54,8 +53,7 @@ const DEFAULT_STATE: PersistedState = {
   latestOutfit: null,
   following: [],
   isPremium: false,
-  collections: { 'Night out': 0, Work: 0, Gym: 0, Inspo: 0 },
-  savedPosts: { 'Night out': [], Work: [], Gym: [], Inspo: [] },
+  savedPosts: {},
   captures: [],
   remindersEnabled: false,
 };

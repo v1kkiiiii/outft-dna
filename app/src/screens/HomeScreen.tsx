@@ -3,7 +3,7 @@ import { Animated, Pressable, ScrollView, Share, StyleSheet, Text, View } from '
 import { colors, fonts } from '../theme';
 import { Post, postIdxFromId } from '../data';
 import { LatestOutfit, useApp } from '../state';
-import { Photo, pressDim, SectionLabel } from '../ui';
+import { BellIcon, CommentIcon, initialsFrom, Photo, pressDim, SectionLabel } from '../ui';
 import { fetchMyOutfits } from '../lib/historyApi';
 import { fetchPlacements, HOME_FALLBACK } from '../lib/adsApi';
 
@@ -16,11 +16,12 @@ function dayKey(d: Date): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-function captureToPost(c: LatestOutfit): Post {
+function captureToPost(c: LatestOutfit, profileName: string, avatarUri: string | null): Post {
   return {
     idx: postIdxFromId(c.id),
     handle: '@you',
-    ava: 'EV',
+    ava: initialsFrom(profileName),
+    avatarUri,
     color: '#CDB89B',
     date: new Date(c.capturedAt).toLocaleDateString(),
     caption: c.caption ?? c.result.insight,
@@ -35,7 +36,7 @@ function captureToPost(c: LatestOutfit): Post {
 export default function HomeScreen() {
   const hourNow = new Date().getHours();
   const greeting = hourNow < 12 ? 'Good morning' : hourNow < 18 ? 'Good afternoon' : 'Good evening';
-  const { navigate, profileName, latestOutfit, captures } = useApp();
+  const { navigate, profileName, avatarUri, latestOutfit, captures } = useApp();
   const firstName = profileName.split(' ')[0];
   const [serverItems, setServerItems] = useState<LatestOutfit[]>([]);
   const [homeAd, setHomeAd] = useState<Post>(HOME_FALLBACK[0]);
@@ -126,10 +127,10 @@ export default function HomeScreen() {
         <Text style={s.wordmark}>outft.</Text>
         <View style={{ flexDirection: 'row', gap: 18 }}>
           <Pressable onPress={() => navigate('messages')} hitSlop={8} style={pressDim}>
-            <Text style={s.headerGlyph}>▤</Text>
+            <CommentIcon size={20} />
           </Pressable>
           <Pressable onPress={() => navigate('activity')} hitSlop={8} style={pressDim}>
-            <Text style={s.headerGlyph}>◈</Text>
+            <BellIcon size={20} />
           </Pressable>
         </View>
       </View>
@@ -187,7 +188,7 @@ export default function HomeScreen() {
         {todayCapture || !newestCapture ? "TODAY'S TRACE" : 'LATEST TRACE'}
       </SectionLabel>
       {newestCapture ? (
-        <Pressable style={pressDim} onPress={() => navigate('postDetail', { post: captureToPost(newestCapture) })}>
+        <Pressable style={pressDim} onPress={() => navigate('postDetail', { post: captureToPost(newestCapture, profileName, avatarUri) })}>
           <Photo uri={newestCapture.photoUri} tone="#DFDFDF" style={s.todayPhoto} />
           <View style={s.todayBar}>
             <Text style={s.todayBarText}>
@@ -241,7 +242,6 @@ const s = StyleSheet.create({
   content: { paddingHorizontal: 22, paddingTop: 16, paddingBottom: 40 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   wordmark: { fontFamily: fonts.serif, fontSize: 22, color: colors.ink },
-  headerGlyph: { fontSize: 17, color: colors.ink },
   h1: { fontFamily: fonts.serif, fontSize: 28, color: colors.ink, marginTop: 22 },
   h1Italic: { fontFamily: fonts.serifItalic, fontSize: 28, color: colors.ink },
   streakCard: { borderWidth: 1, borderColor: colors.line, borderRadius: 12, padding: 16, marginTop: 22 },

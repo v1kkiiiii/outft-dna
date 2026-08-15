@@ -24,7 +24,36 @@ export function CommentIcon({ color = colors.ink, size = 18 }: { color?: string;
   );
 }
 
-export function Avatar({ initials, color, size = 36 }: { initials: string; color: string; size?: number }) {
+export function BellIcon({ color = colors.ink, size = 18 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20">
+      <Path
+        d="M5 8.5a5 5 0 0 1 10 0v3.2l1.4 2.3H3.6L5 11.7V8.5z"
+        stroke={color} strokeWidth={1.3} fill="none" strokeLinejoin="round" strokeLinecap="round"
+      />
+      <Path d="M8 16.2a2 2 0 0 0 4 0" stroke={color} strokeWidth={1.3} fill="none" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// Computes up-to-2-letter initials from a display name, for the Avatar
+// fallback when no photo is set.
+export function initialsFrom(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return parts.map((w) => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+}
+
+export function Avatar({ initials, color, size = 36, uri }: {
+  initials: string; color: string; size?: number; uri?: string | null;
+}) {
+  if (uri) {
+    return (
+      <Image
+        source={{ uri }}
+        style={{ width: size, height: size, borderRadius: size / 2 }}
+      />
+    );
+  }
   return (
     <View style={{
       width: size, height: size, borderRadius: size / 2, backgroundColor: color,
@@ -34,6 +63,19 @@ export function Avatar({ initials, color, size = 36 }: { initials: string; color
         {initials}
       </Text>
     </View>
+  );
+}
+
+export function BookmarkIcon({ color = colors.ink, size = 18, filled = false }: {
+  color?: string; size?: number; filled?: boolean;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20">
+      <Path
+        d="M5 3.5C5 2.67 5.67 2 6.5 2h7c.83 0 1.5.67 1.5 1.5V18l-5-3.3-5 3.3V3.5z"
+        stroke={color} strokeWidth={1.3} fill={filled ? color : 'none'} strokeLinejoin="round"
+      />
+    </Svg>
   );
 }
 

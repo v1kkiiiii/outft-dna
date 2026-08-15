@@ -12,6 +12,7 @@ export interface Post {
   idx: number;
   handle: string;
   ava: string;
+  avatarUri?: string | null;
   color: string;
   date: string;
   caption: string;
@@ -104,7 +105,7 @@ export const PEOPLE: Person[] = [
   { key: 'jude', name: 'Jude Farrell', ava: 'JU', color: avatarColors.jude, since: '30.04.25', fits: 28, echoes: 2, streak: 3, tags: ['VINTAGE', 'TEXTURE', 'WEEKEND'], colors: ['#8A7A68', '#C4B098', '#D8CFC4', '#E8D8C4', '#F0EBE3'], caption: 'silk under wool', postTags: ['weekend', 'classic'] },
 ];
 
-export interface Comment { ava: string; color: string; name: string; text: string; time: string; liked?: boolean }
+export interface Comment { ava: string; avatarUri?: string | null; color: string; name: string; text: string; time: string; liked?: boolean }
 
 const COMMENT_PEOPLE = [
   { ava: 'LI', color: avatarColors.lila, name: '@lila' },

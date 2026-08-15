@@ -5,10 +5,10 @@ import {
 import { colors, fonts } from '../theme';
 import { Comment, commentsFor, POSTS } from '../data';
 import { useApp } from '../state';
-import { Avatar, Header, Photo } from '../ui';
+import { Avatar, Header, initialsFrom, Photo } from '../ui';
 
 export default function CommentsScreen() {
-  const { params, goBack } = useApp();
+  const { params, goBack, profileName, avatarUri } = useApp();
   const key = params.commentsKey ?? 'detail';
   const post = params.post ?? POSTS[0];
 
@@ -25,7 +25,7 @@ export default function CommentsScreen() {
   const send = () => {
     const t = text.trim();
     if (!t) return;
-    setAdded((a) => [...a, { ava: 'EV', color: '#CDB89B', name: '@you', text: t, time: 'just now' }]);
+    setAdded((a) => [...a, { ava: initialsFrom(profileName), avatarUri, color: '#CDB89B', name: '@you', text: t, time: 'just now' }]);
     setText('');
   };
 
@@ -49,7 +49,7 @@ export default function CommentsScreen() {
         ListEmptyComponent={<Text style={s.empty}>No comments yet.</Text>}
         renderItem={({ item, index }) => (
           <View style={s.row}>
-            <Avatar initials={item.ava} color={item.color} size={32} />
+            <Avatar initials={item.ava} color={item.color} uri={item.avatarUri} size={32} />
             <View style={{ flex: 1 }}>
               <Text style={s.cName}>
                 {item.name} <Text style={s.cTime}>{item.time}</Text>
@@ -65,7 +65,7 @@ export default function CommentsScreen() {
         )}
       />
       <View style={s.inputBar}>
-        <Avatar initials="EV" color="#CDB89B" size={32} />
+        <Avatar initials={initialsFrom(profileName)} color="#CDB89B" uri={avatarUri} size={32} />
         <TextInput
           style={s.input}
           value={text}
