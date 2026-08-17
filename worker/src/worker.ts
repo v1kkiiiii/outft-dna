@@ -244,7 +244,7 @@ async function mainLoop(): Promise<void> {
   let emptyPolls = 0;
 
   console.log('[worker] outft analysis worker starting', {
-    model: process.env.ANALYSIS_MODEL || 'claude-sonnet-4-6',
+    model: process.env.ANALYSIS_MODEL || 'claude-sonnet-5',
     analysisEnabled: isAnalysisEnabled(),
   });
 

@@ -31,7 +31,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk@0.32.1';
 
 const MAX_LIMIT = 6;
 const SHORTLIST_SIZE = 12; // candidates sent to the model, pre-ranked locally
-const MODEL = Deno.env.get('SIMILARITY_MODEL') || 'claude-sonnet-4-6';
+const MODEL = Deno.env.get('SIMILARITY_MODEL') || 'claude-sonnet-5';
 
 interface AnalysisRow {
   outfit_id: string;

@@ -59,7 +59,7 @@ export async function analyzeOutfitReal(input: AnalyzeInput): Promise<AnalysisRe
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-sonnet-5',
         max_tokens: 700,
         system: SYSTEM_PROMPT,
         messages: [{

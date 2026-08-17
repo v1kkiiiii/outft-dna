@@ -30,7 +30,7 @@ const BASE_DELAY_MS = 500;
 const MAX_DELAY_MS = 8_000;
 
 function getModel(): string {
-  return process.env.ANALYSIS_MODEL || 'claude-sonnet-4-6';
+  return process.env.ANALYSIS_MODEL || 'claude-sonnet-5';
 }
 
 function getClient(): Anthropic {

@@ -31,7 +31,7 @@ cp .env.example .env
 | `ANTHROPIC_API_KEY` | yes | Server-only. Replaces the removed `EXPO_PUBLIC_ANTHROPIC_API_KEY`. |
 | `SUPABASE_URL` | yes | Supabase project URL. |
 | `SUPABASE_SERVICE_ROLE_KEY` | yes | Service role key. Server-only; never in mobile code or `EXPO_PUBLIC_*` vars (SECURITY.md §7). |
-| `ANALYSIS_MODEL` | no | Defaults to `claude-sonnet-4-6`. Stamped into `OutfitAnalysisV1.modelVersion`. |
+| `ANALYSIS_MODEL` | no | Defaults to `claude-sonnet-5`. Stamped into `OutfitAnalysisV1.modelVersion`. |
 | `ANALYSIS_ENABLED` | no | Global kill switch (ML.md §4.3). Must be exactly `true` to let the worker lease/process jobs. |
 
 ## Running

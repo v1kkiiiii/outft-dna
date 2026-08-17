@@ -32,7 +32,7 @@ app.post('/api/analyze', async (req, res) => {
 
   try {
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       max_tokens: 1000,
       system: `You are outft.'s style DNA engine. Analyze outfit photos and return ONLY a JSON object with no markdown, no preamble, just raw JSON:
 {"aesthetics":[{"label":"...","pct":0}],"tags":["..."],"insight":"..."}
