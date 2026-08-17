@@ -710,7 +710,7 @@ export const StyleScoresSchema = z
 export const OutfitAnalysisV1Schema = z.object({
   schemaVersion: z.literal('1.0'),
   modelVersion: z.string().min(1),
-  promptVersion: z.literal('outft-analysis-v2'),
+  promptVersion: z.literal('outft-analysis-v3'),
   garments: z.array(GarmentDetectionSchema).min(1).max(8),
   colors: z.array(ColorDetectionSchema).min(1).max(6),
   styleTraits: z.array(StyleTraitSchema).min(2).max(6),
@@ -755,7 +755,7 @@ export type ValidationOutcome = UnsupportedResult | ValidationSuccess;
 
 interface StampParams {
   modelVersion: string;
-  promptVersion: 'outft-analysis-v2';
+  promptVersion: 'outft-analysis-v3';
 }
 
 const SCORE_SUM_TOLERANCE = 0.5;

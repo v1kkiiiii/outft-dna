@@ -1,49 +1,32 @@
 /**
- * Production prompt spec — outft-analysis-v2 (ML.md §3).
+ * Production prompt spec — outft-analysis-v3 (ML.md §3).
  *
- * v2 replaces the 10-label aesthetic-taxonomy-v1 with aesthetic-taxonomy-v2:
- * 478 canonical labels grouped into 26 style families, to support much more
- * specific style reads than the original 10 broad categories. schemaVersion,
- * modelVersion, and promptVersion are NEVER requested from the model — they
- * are stamped by the worker (schema.ts / analyze.ts).
+ * v3 keeps aesthetic-taxonomy-v2's 478 labels but adds a one-sentence
+ * definition per label (aestheticDefinitions.ts), so the model has real
+ * disambiguating signal between similar-sounding labels (e.g. "Quiet
+ * luxury" vs "Stealth wealth" vs "Old money") instead of bare names.
+ * schemaVersion, modelVersion, and promptVersion are NEVER requested from
+ * the model — they are stamped by the worker (schema.ts / analyze.ts).
  *
  * Any change to this text, the embedded taxonomy lists, output shape, or
- * tone rules requires a new promptVersion ("outft-analysis-v3") and a full
+ * tone rules requires a new promptVersion ("outft-analysis-v4") and a full
  * evaluation gate pass (ML.md §3.5, §6). Do not edit in place for prod use.
  */
 
-export const PROMPT_VERSION = 'outft-analysis-v2' as const;
+import { AESTHETIC_FAMILIES, AESTHETIC_DEFINITIONS } from './aestheticDefinitions.js';
 
-// Grouped by style family purely to help the model narrow its search space —
-// the model may still pick its top 4 from across different families. Must
-// stay in sync with AESTHETIC_TAXONOMY_V1 in schema.ts (same 478 labels).
-export const AESTHETIC_TAXONOMY_PROMPT_LIST =
-  'LUXURY / HIGH FASHION: Quiet luxury, Old money, New money, Stealth wealth, Power dressing, Haute couture, Designer logomania, Italian luxury, French chic, Paris street, Milan sleek, Archive fashion, Fashion week, Editorial, Avant garde, Conceptual fashion, Deconstructed, Asymmetric, Sculptural, Couture gown\n' +
-  'CLEAN / MINIMAL: Minimalist, Classic minimalist, Scandi, Danish cool, Normcore, Clean girl, Vanilla girl, Classic, Timeless, Understated, Monochrome, Tonal dressing, All black, All white, Neutral palette, Capsule wardrobe, Effortless chic, Undone elegance, Quiet cool, Raw edge minimal\n' +
-  'PREPPY / CLASSIC AMERICAN: Preppy, East coast prep, Ivy league, Old school prep, WASP aesthetic, Country club, Tennis core, Lacrosse casual, Varsity, Letterman, Rowing aesthetic, Sailing, Equestrian, Polo, Rugby stripe, Madras, Nantucket red, New England casual, Coastal grandmother, Hamptons\n' +
-  'STREETWEAR / URBAN: Streetwear, Hypebeast, Sneakerhead, Techwear, Gorpcore, Utilitarian, Cargo, Workwear, NY street, LA street, London street, Tokyo street, Paris street casual, Chicago casual, ATL street, Miami street, Skater, Longboarder, BMX, Graffiti culture, Underground, Off duty model, Model off duty, Airport fit, Travel casual\n' +
-  'SPORTY / ATHLETIC: Athleisure, Gymwear, Running aesthetic, Pilates girl, Yoga casual, Cyclist, Swimmer casual, Soccer casual, Basketball casual, Golf casual, Ski chalet, Apres ski, Surf, Wakeboard, Outdoorsy active, Hiker, Climber, Lux sport, Sporty chic, Sport luxe, Blokecore, Football casual, Terrace wear\n' +
-  'COASTAL / NATURE: Beach casual, Island girl, Tropical, Surf girl, Ocean aesthetic, Mermaidcore, Nautical, Maritime, Coastal cool, California casual, Santa Barbara, Malibu, Mediterranean, Greek island, Amalfi coast, Tulum, Bali, Nature girl, Outdoorsy, Camping chic, Cottagecore, Farmcore, Prairie, Western, Cowboy, Cowgirl, Country, Southern belle, Rancher, Desert aesthetic, Southwestern, Boho western\n' +
-  'FEMININE / ROMANTIC: Coquette, Balletcore, Soft girl, Princesscore, Fairycore, Angelcore, Ethereal, Dreamy, Whimsical, Romantic, Dark romance, Regencycore, Royalcore, Cottagecore romantic, Floral feminine, Lace and ribbon, Bow aesthetic, Vintage feminine, Old Hollywood glam, Pin-up, Bombshell, Femme fatale, Burlesque, Cabaret, Showgirl\n' +
-  'DARK / ALTERNATIVE: Goth, Gothic, Dark academia, Grunge, Punk, Soft punk, Pop punk, Cyber goth, Industrial, Witchcore, Witchy academic, Occult, Victorian goth, Edwardian goth, Romantic goth, Pastel goth, Nu goth, Whimsigoth, Cryptidcore, Weirdcore, Dreamcore, Traumacore, Dariacore, Grunge lite, Edgy minimalist, Dark minimalist, Shadow\n' +
-  'RETRO / VINTAGE: Y2K, 90s, 80s, 70s boho, 70s disco, 60s mod, 50s housewife, 50s rockabilly, 40s wartime, 30s glamour, 20s flapper, Disco, Glam rock, Hair metal, New wave, Post punk, Mod revival, Teddy boy, Greaser, Psychedelic, Hippie, Flower child, Free love era, Thriftcore, Vintage prep, Archive hunting, Deadstock, Retro sporty\n' +
-  'CREATIVE / ARTSY: Art hoe, Eclectic, Maximalist, Color blocking, Print mixing, Pattern clash, Dopamine dressing, Joy dressing, Camp, Kitsch, Pop art, Surrealist fashion, Dadaist, Bauhaus, Abstract, Artist aesthetic, Painter, Ceramicist, Gallery girl, Museum aesthetic\n' +
-  'ACADEMIC: Light academia, Academia, Oxford aesthetic, Cambridge aesthetic, Bookish, Literary, Philosopher, Professor, Student aesthetic, Scholastic, Classic academic, Science nerd, Math aesthetic, Art student, Film student, Theater kid, Music student, Architecture student, Law school\n' +
-  'JAPANESE SUBCULTURES: Gyaru, Kogal, Lolita, Sweet Lolita, Gothic Lolita, Classic Lolita, Punk Lolita, Sailor Lolita, Wa Lolita, Mori girl, Visual kei, Decora, Fairy kei, Gyaru-o, Harajuku, Shibuya casual, Ura-Harajuku, Kigurumi, Dolly kei, Cult party kei, Larme kei, Jirai kei, Yami kawaii, Kawaii, Super kawaii, Pastel kawaii, Dark kawaii\n' +
-  'KOREAN: K-fashion, K-indie, K-pop idol, Soft Seoul, K-street, Ulzzang, Hanbok fusion, Korean minimal, Seoul casual, Hongdae street, Sinchon style, Korean office, K-beauty adjacent\n' +
-  'CHINESE: C-fashion, Hanfu, Tang aesthetic, Modern hanfu, Chinese streetwear, Shanghai chic, Beijing casual, C-pop idol\n' +
-  'SOUTH ASIAN: Indo-fusion, Modern kurta, Saree contemporary, Desi street, Bollywood glam, South Asian bridal, Indo-western\n' +
-  'AFRICAN / AFRODIASPORA: Afrocentric, Afrofuturist, Lagos street, Nairobi cool, African print, Ankara fashion, Kente inspired, West African glamour, East African minimal, Afropunk, Diaspora chic\n' +
-  'LATIN / LATINX: Latin street, Miami Cuban, Colombian chic, Brazilian beach, Mexican folk inspired, Tejano, Reggaeton glam, Latin minimalist, Barrio chic\n' +
-  'MIDDLE EASTERN: Gulf chic, Dubai glam, Modern abaya, Modest fashion, Levant street, Persian elegant, Arabic streetwear\n' +
-  'INTERNET / DIGITAL NATIVE: Seapunk, Vaporwave, Cybercore, Webcore, Glitchcore, Internetcore, Tumblr era, Twitter aesthetic, TikTok fashion, Instagram aesthetic, Pinterest board, Bloggercore, VSCO girl, E-girl, E-boy, Softie, Alt TikTok, Cottagecore internet\n' +
-  'SUBCULTURE SPECIFIC: Raver, Club kid, Rave aesthetic, Festival, Burning Man, Underground club, Drag inspired, Ballroom, Vogue aesthetic, Biker, Motorcycle, Heavy metal, Rock, Indie rock, Folk, Jazz aesthetic, Blues aesthetic, Classical music, Opera glam, Choir casual\n' +
-  'OCCUPATION / LIFESTYLE: Office siren, Corporate baddie, Business casual, Smart casual, Business formal, Creative professional, Tech bro, Silicon Valley casual, Startup casual, Freelancer chic, Barista aesthetic, Chef casual, Artist studio, Yoga instructor, Personal trainer, Nurse off duty, Teacher aesthetic, Librarian, Architect, Interior designer\n' +
-  'OCCASION: Date night, Night out, Brunch fit, Vacation mode, Resort wear, Cruise wear, Wedding guest, Black tie, Cocktail, Garden party, Baby shower, Birthday fit, Festival fit, Concert fit, Museum day, Gallery opening, Farmers market, Coffee run, Errand fit, Lazy day chic\n' +
-  'SITUATIONAL MICRO: Tomato girl summer, Mob wife, Quiet outdoor, Libertine, Cleanfit, Vanilla girl summer, That girl, Lucky girl, Latte girl, Espresso girl, Coastal cowgirl, Cowboy core, Mermaid summer, Ballet flats era, Loafer girl, Sneaker girl, Boot season, Trench coat era, Leather jacket girl, Blazer girl\n' +
-  'SCENE / EMO ERA: Scene, Emo, Screamo, Scene queen, Mall goth, Hot topic era, Myspace era, Raccoon eyes, Checkered pattern, Band tee culture\n' +
-  'TWEE / INDIE: Twee, Hipster, Indie, Indie sleaze, Indie film, Wes Anderson aesthetic, Sundance, Folk indie, Bedroom pop, Shoegaze aesthetic\n' +
-  'MISCELLANEOUS NICHE: Knightcore, Medievalcore, Renaissancecore, Baroque, Rococo, Victorianna, Edwardian, Art nouveau, Art deco, Futurist, Space age, Retrofuturism, Solarpunk, Lunarpunk, Steampunk, Dieselpunk, Atompunk, Biopunk, Cyberpunk\n';
+export const PROMPT_VERSION = 'outft-analysis-v3' as const;
+
+// Grouped by style family with a one-line definition per label — purely to
+// help the model narrow its search space and disambiguate close labels; the
+// model may still pick its top 4 from across different families. Must stay
+// in sync with AESTHETIC_TAXONOMY_V1 in schema.ts (enforced at compile time
+// by AESTHETIC_DEFINITIONS's Record<AestheticLabel, string> type).
+export const AESTHETIC_TAXONOMY_PROMPT_LIST = AESTHETIC_FAMILIES.map(
+  (family) =>
+    `${family.name}:\n` +
+    family.labels.map((label) => `  ${label} — ${AESTHETIC_DEFINITIONS[label]}`).join('\n'),
+).join('\n');
 
 export const GARMENT_TAXONOMY_PROMPT_LIST =
   'outerwear, top, bottom, dress, footwear, accessory, bag, headwear';
@@ -78,9 +61,9 @@ Field-by-field instructions:
 
 - styleTraits: 2-6 concise lowercase descriptors of silhouette, texture, palette, or construction (e.g. "structured", "wide leg", "neutral palette"). Each has a "confidence" 0-1. Traits describe the CLOTHES ONLY — never the wearer's body, attractiveness, or worth.
 
-- styleScores: choose the top 4 aesthetics for this outfit from the aesthetic-taxonomy-v2 labels below (verbatim, exact spelling and case — do not invent or rephrase a label). The labels are grouped into style families purely to help you search; your top 4 do not need to come from the same family. Provide integer percentages for those 4 labels that sum to exactly 100.
+- styleScores: choose the top 4 aesthetics for this outfit from the aesthetic-taxonomy-v2 labels below (verbatim, exact spelling and case — do not invent or rephrase a label). Each label has a one-sentence definition; use it to pick the label that most precisely matches what's visible, not just the closest-sounding name — e.g. don't default to "Quiet luxury" for any expensive-looking neutral outfit when "Stealth wealth", "Old money", or "Minimalist" may fit the actual visual evidence better. The labels are grouped into style families purely to help you search; your top 4 do not need to come from the same family. Provide integer percentages for those 4 labels that sum to exactly 100.
 
-Aesthetic taxonomy v2, by family:
+Aesthetic taxonomy v2, by family (label — definition):
 ${AESTHETIC_TAXONOMY_PROMPT_LIST}
 
 - confidence: a single 0-1 value for your overall reading of this outfit. Use a lower value when the framing is partial, the subject is occluded, lighting is poor, or the styling is ambiguous. Do not fake certainty.
