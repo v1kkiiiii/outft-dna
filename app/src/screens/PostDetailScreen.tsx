@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import * as MediaLibrary from 'expo-media-library';
 import { colors, fonts } from '../theme';
 import { affiliateUrl, BRAND_PICKS, ECHO_POSTS, Post, POSTS, postIdxFromId } from '../data';
 import { LatestOutfit, useApp } from '../state';
 import { backendAvailable } from '../lib/supabase';
 import { deleteOutfit, fetchMyOutfitById } from '../lib/historyApi';
-import { findSimilarOutfits, SimilarMatch } from '../lib/similarApi';
 import { Avatar, BookmarkIcon, CommentIcon, Header, initialsFrom, Photo, Rule, SectionLabel, Tag } from '../ui';
 import { SaveSheet } from '../ui-save-sheet';
 
@@ -89,9 +88,17 @@ export default function PostDetailScreen() {
     }
   };
 
+  const shareOutfit = () => {
+    Share.share({
+      message: shownCaption ? `${shownCaption} — traced on OUTFT` : 'Traced on OUTFT',
+      ...(post.photoUri ? { url: post.photoUri } : {}),
+    }).catch(() => {});
+  };
+
   const openOptions = () => {
     const buttons: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[] = [
       { text: 'Save photo to camera roll', onPress: saveToCameraRoll },
+      { text: 'Share', onPress: shareOutfit },
     ];
     if (isMine) {
       buttons.push({ text: 'Delete trace', style: 'destructive', onPress: confirmDelete });
@@ -100,26 +107,8 @@ export default function PostDetailScreen() {
     Alert.alert(post.handle, undefined, buttons);
   };
 
-  const canFindSimilar = isMine && !!serverId && UUID_RE.test(serverId) && backendAvailable();
-  const [similarLoading, setSimilarLoading] = useState(false);
-  const [similarMatches, setSimilarMatches] = useState<SimilarMatch[] | null>(null);
-
-  const onFindSimilar = async () => {
-    if (!canFindSimilar) {
-      showToast('finding brands that match this aesthetic…');
-      navigate('twins');
-      return;
-    }
-    setSimilarLoading(true);
-    setSimilarMatches(null);
-    const result = await findSimilarOutfits(serverId!);
-    setSimilarLoading(false);
-    if (!result.ok) {
-      showToast('could not find similar traces — try again');
-      return;
-    }
-    setSimilarMatches(result.matches);
-    if (result.matches.length === 0) showToast('no close matches in your traces yet');
+  const onFindSimilar = () => {
+    navigate('echoes', { post });
   };
 
   const onBookmark = () => {
@@ -140,13 +129,6 @@ export default function PostDetailScreen() {
     tone: '#DFDFDF', photoUri: c.photoUri,
     serverId: c.id,
   } as Post & { serverId: string });
-
-  const similarPosts: (Post & { why: string; serverId: string })[] = (similarMatches ?? [])
-    .map((m) => {
-      const c = captures.find((cap) => cap.id === m.outfitId);
-      return c ? { ...captureToPost(c), why: m.why, serverId: c.id } : null;
-    })
-    .filter((p): p is Post & { why: string; serverId: string } => p !== null);
 
   const openProfile = () => {
     if (post.handle !== '@you') {
@@ -193,24 +175,9 @@ export default function PostDetailScreen() {
               only (session-local) like state. Demo posts keep their counts. */}
           {!isMine && <Text style={s.likes}>{post.likes + (liked ? 1 : 0)} likes</Text>}
 
-          <Pressable style={s.findSimilarBtn} onPress={onFindSimilar} disabled={similarLoading}>
-            <Text style={s.findSimilarText}>{similarLoading ? 'FINDING…' : 'FIND SIMILAR'}</Text>
+          <Pressable style={s.findSimilarBtn} onPress={onFindSimilar}>
+            <Text style={s.findSimilarText}>FIND SIMILAR</Text>
           </Pressable>
-
-          {canFindSimilar && similarPosts.length > 0 && (
-            <View style={{ marginTop: 14 }}>
-              {similarPosts.map((p) => (
-                <Pressable
-                  key={p.serverId}
-                  style={s.similarRow}
-                  onPress={() => navigate('postDetail', { post: p })}
-                >
-                  <Photo uri={p.photoUri} tone={p.tone} style={{ width: 48, height: 60, borderRadius: 6 }} />
-                  <Text style={s.similarWhy} numberOfLines={2}>{p.why}</Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
 
           <View style={s.dnaCard}>
             <SectionLabel>OUTFIT DNA</SectionLabel>
@@ -286,8 +253,6 @@ const s = StyleSheet.create({
     alignItems: 'center', marginTop: 14,
   },
   findSimilarText: { fontFamily: fonts.sansMedium, fontSize: 11, letterSpacing: 2, color: colors.ink },
-  similarRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
-  similarWhy: { flex: 1, fontFamily: fonts.serifItalic, fontSize: 13, color: colors.muted },
   dnaCard: { backgroundColor: '#F7F7F7', borderRadius: 12, padding: 15, marginTop: 16 },
   dnaText: { fontFamily: fonts.serifItalic, fontSize: 15, color: colors.ink, marginTop: 6 },
   shopBtn: {

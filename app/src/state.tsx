@@ -8,7 +8,7 @@ export type AuthMode = 'supabase' | 'guest' | 'demo';
 export type ScreenKey =
   | 'signin' | 'home' | 'camera' | 'twins' | 'profile' | 'dna' | 'wrapped'
   | 'premium' | 'messages' | 'activity' | 'postDetail' | 'collection'
-  | 'chat' | 'comments' | 'otherProfile' | 'settings';
+  | 'chat' | 'comments' | 'otherProfile' | 'settings' | 'echoes';
 
 export interface LatestOutfit {
   id: string;
