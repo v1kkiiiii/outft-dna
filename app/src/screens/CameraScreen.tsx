@@ -207,13 +207,17 @@ export default function CameraScreen() {
     return true;
   };
 
-  // Labeled demo fallback (per PRD: no silent fake AI).
-  const runDemo = async (p: { uri: string; base64?: string | null; mt: string }) => {
+  // Direct, synchronous analysis via the analyze-image Edge Function — the
+  // same simple path the marketing site uses. Works signed-out and without
+  // storage/queue, so the user always gets a real reading. Only flags the
+  // result as demo if it genuinely fell back to the canned pool (PRD §5:
+  // no silent fake AI).
+  // Do NOT clear outfitId: if the upload succeeded but the queued analysis
+  // failed, the server row exists and the local record must share its id.
+  const runDirect = async (p: { uri: string; base64?: string | null; mt: string }) => {
     setStatusText('Reading your style DNA…');
-    setIsDemo(true);
-    // Do NOT clear outfitId: if the upload succeeded but analysis failed, the
-    // server row exists and the local record must share its id to dedupe later.
-    const res = await analyzeOutfitReal({ uri: p.uri, base64: p.base64, mediaType: p.mt });
+    const { result: res, isMock } = await analyzeOutfitReal({ uri: p.uri, base64: p.base64, mediaType: p.mt });
+    setIsDemo(isMock);
     setResult(res);
   };
 
@@ -249,12 +253,16 @@ export default function CameraScreen() {
     if (backendAvailable()) {
       const ok = await runRealPipeline(p);
       if (!ok) {
-        // Keep the receipt open and offer an inline retry before any fallback.
+        // The queued pipeline needs sign-in, an upload, and a worker to have
+        // picked the job up — any of which can fail. Don't strand the user on
+        // an empty receipt waiting for a manual retry: fall straight through
+        // to the direct analysis so they still get a real reading, and keep
+        // offering the retry so it can also be persisted to their history.
+        await runDirect(p);
         setCanRetry(true);
       }
     } else {
-      showToast('backend not configured');
-      await runDemo(p);
+      await runDirect(p);
     }
     setAnalyzing(false);
   };
@@ -266,8 +274,8 @@ export default function CameraScreen() {
     setAnalyzing(true);
     const ok = await runRealPipeline(p);
     if (!ok) {
-      // Retry failed too — fall back to the labeled demo analysis.
-      await runDemo(p);
+      // Retry failed too — keep the direct reading on screen.
+      await runDirect(p);
     }
     setAnalyzing(false);
   };
