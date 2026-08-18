@@ -9,7 +9,7 @@ const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
 
 const SYSTEM_PROMPT = `You are outft.'s style DNA engine. Analyze outfit photos and return ONLY a JSON object with no markdown, no preamble, just raw JSON:
 {"aesthetics":[{"label":"...","pct":0}],"tags":["..."],"insight":"..."}
-- aesthetics: top 4 aesthetic categories summing to 100, chosen verbatim from this taxonomy (478 labels with one-line definitions, grouped into families below; use the definitions to pick the most precise match, not just the closest-sounding name; your top 4 need not share a family):
+- aesthetics: top 4 aesthetic categories summing to 100, chosen verbatim from this taxonomy (478 labels with one-line definitions, grouped into families below). Ground each label in the specific garments/colors you can see — do not default to a broad catch-all label (Eclectic, Classic, Coastal cool, Streetwear, Minimalist, Business casual, Romantic, Understated, Preppy, Vintage prep) out of uncertainty; scan the full family for a more specific match first, and only fall back to the broad label if nothing narrower genuinely fits. Your top 4 need not share a family:
 LUXURY / HIGH FASHION:
   Quiet luxury — Unlogoed, expensive-quality basics — cashmere, fine wool, subtle tailoring — that signal wealth through fabric and fit, not branding.
   Old money — Inherited-wealth dressing rooted in decades-old heritage brands, tweed, boat shoes, and understated tailoring rather than trends.

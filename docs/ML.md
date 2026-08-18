@@ -10,7 +10,7 @@ Frozen artifacts and their versions:
 | Artifact | Version |
 | --- | --- |
 | Analysis output schema | `schemaVersion: "1.0"` (OutfitAnalysisV1) |
-| Prompt | `promptVersion: "outft-analysis-v3"` |
+| Prompt | `promptVersion: "outft-analysis-v4"` |
 | Aesthetic taxonomy | `aesthetic-taxonomy-v2` |
 | Garment category taxonomy | `garment-taxonomy-v1` |
 | Style DNA aggregation algorithm | `dna-agg-v1` |
@@ -35,7 +35,7 @@ type AnalyzeOutfit = (input: AnalyzeOutfitInput) => Promise<OutfitAnalysisV1>;
 {
   "schemaVersion": "1.0",
   "modelVersion": "provider-model-version",
-  "promptVersion": "outft-analysis-v3",
+  "promptVersion": "outft-analysis-v4",
   "garments": [{ "category": "outerwear", "label": "blazer", "confidence": 0.92 }],
   "colors": [{ "hex": "#D8C9B5", "label": "warm cream", "weight": 0.34 }],
   "styleTraits": [{ "label": "structured", "confidence": 0.88 }],
@@ -55,7 +55,7 @@ Validation runs in the worker after the provider responds and before any databas
 | --- | --- |
 | `schemaVersion` | Required. Must equal `"1.0"` exactly. |
 | `modelVersion` | Required, non-empty string. The worker stamps this from the adapter configuration; a provider-supplied value never overrides it. |
-| `promptVersion` | Required. Must equal `"outft-analysis-v3"` exactly (stamped by the worker from the prompt registry). |
+| `promptVersion` | Required. Must equal `"outft-analysis-v4"` exactly (stamped by the worker from the prompt registry). |
 | `garments` | Required array, 1–8 items. Each item: `category` must be a canonical garment-taxonomy-v1 value (Section 2.2); `label` non-empty string ≤ 40 chars, lowercase, drawn from provider output after mapping (Section 2.3); `confidence` number in [0, 1]. Duplicate (category, label) pairs are rejected. |
 | `colors` | Required array, 1–6 items. Each item: `hex` matches `#RRGGBB` uppercase-or-lowercase hex (normalized to uppercase on save); `label` non-empty plain-language color name ≤ 30 chars; `weight` number in [0, 1]. Weights should sum to ≤ 1.0 + 0.05 tolerance; ordering is descending by weight. |
 | `styleTraits` | Required array, 2–6 items. Each item: `label` non-empty string ≤ 30 chars, lowercase descriptor (e.g. "structured", "wide leg", "neutral palette"); `confidence` number in [0, 1]. No duplicates. Trait labels must pass the banned-language screen (Section 3.4). |
@@ -81,7 +81,7 @@ General rules:
 
 The full enumerated list is the single source of truth in code — `AESTHETIC_TAXONOMY_V1` in `worker/src/schema.ts` and `AESTHETIC_TAXONOMY_PROMPT_LIST` in `worker/src/prompt.ts` (kept in sync; the grouping is embedded in the prompt purely to help the model narrow its search, a `styleScores` top-4 may span any families). Do not hand-maintain a second copy of the list in this document — it will drift.
 
-`styleScores` keys, DNA snapshot score keys, and all UI aesthetic displays draw exclusively from this list. v2 replaced the original 10-label `aesthetic-taxonomy-v1` (superseded, no longer used) in prompt version `outft-analysis-v2`. Prompt version `outft-analysis-v3` keeps the same v2 label set but adds a one-sentence definition per label (`worker/src/aestheticDefinitions.ts`) to the prompt text, to disambiguate close labels — this is a prompt change, not a taxonomy change, so the taxonomy itself is still `aesthetic-taxonomy-v2`. Adding, removing, or renaming a label creates `aesthetic-taxonomy-v3` and a new prompt version; historical analyses remain immutable under the version stamped on them at creation.
+`styleScores` keys, DNA snapshot score keys, and all UI aesthetic displays draw exclusively from this list. v2 replaced the original 10-label `aesthetic-taxonomy-v1` (superseded, no longer used) in prompt version `outft-analysis-v2`. Prompt version `outft-analysis-v3` kept the same v2 label set but added a one-sentence definition per label (`worker/src/aestheticDefinitions.ts`) to the prompt text, to disambiguate close labels. Prompt version `outft-analysis-v4` (current) keeps the same labels and definitions but adds an explicit anti-genericity instruction after observing production outputs over-select broad umbrella labels (Eclectic, Coastal cool, Classic, Streetwear, Minimalist, etc.) regardless of actual visual evidence — v4 requires grounding each styleScores label in the already-identified garments/colors/styleTraits and scanning a family's specific labels before falling back to its broad one. None of v2/v3/v4 changed the taxonomy itself, so it remains `aesthetic-taxonomy-v2`. Adding, removing, or renaming a label creates `aesthetic-taxonomy-v3` and a new prompt version; historical analyses remain immutable under the version stamped on them at creation.
 
 ### 2.2 Garment category taxonomy — `garment-taxonomy-v1`
 
@@ -113,9 +113,9 @@ If mapping produces duplicate `styleScores` keys (two provider labels mapping to
 
 ---
 
-## 3. Production prompt spec — `outft-analysis-v3`
+## 3. Production prompt spec — `outft-analysis-v4`
 
-Evolves the prototype prompt in `/Users/sahanalydia/Documents/docs/outft-dna/server.js` (which outputs only `aesthetics`/`tags`/`insight`) to emit the full OutfitAnalysisV1 payload. This section specifies prompt content requirements, not literal prompt text; the frozen prompt text lives in the worker's prompt registry keyed by `outft-analysis-v3`.
+Evolves the prototype prompt in `/Users/sahanalydia/Documents/docs/outft-dna/server.js` (which outputs only `aesthetics`/`tags`/`insight`) to emit the full OutfitAnalysisV1 payload. This section specifies prompt content requirements, not literal prompt text; the frozen prompt text lives in the worker's prompt registry keyed by `outft-analysis-v4`.
 
 ### 3.1 Role and framing
 

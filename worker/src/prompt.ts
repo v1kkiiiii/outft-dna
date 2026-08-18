@@ -1,21 +1,37 @@
 /**
- * Production prompt spec — outft-analysis-v3 (ML.md §3).
+ * Production prompt spec — outft-analysis-v4 (ML.md §3).
  *
- * v3 keeps aesthetic-taxonomy-v2's 478 labels but adds a one-sentence
- * definition per label (aestheticDefinitions.ts), so the model has real
- * disambiguating signal between similar-sounding labels (e.g. "Quiet
- * luxury" vs "Stealth wealth" vs "Old money") instead of bare names.
+ * v4 keeps aesthetic-taxonomy-v2's 478 labels and v3's per-label
+ * definitions, but fixes a real accuracy problem observed in production:
+ * the model defaulted to broad "safe" umbrella labels (Eclectic, Coastal
+ * cool, Classic, Streetwear, Minimalist) far more than the specific,
+ * niche labels the taxonomy exists to support. v4 adds an explicit
+ * anti-genericity instruction — ground styleScores in the garments/
+ * colors/styleTraits already identified, scan the specific sub-labels in
+ * a family before reaching for its broad label, and never pick a broad
+ * label just because the model is uncertain (uncertainty belongs in the
+ * confidence field, not in vaguer label choices).
+ *
  * schemaVersion, modelVersion, and promptVersion are NEVER requested from
  * the model — they are stamped by the worker (schema.ts / analyze.ts).
  *
  * Any change to this text, the embedded taxonomy lists, output shape, or
- * tone rules requires a new promptVersion ("outft-analysis-v4") and a full
+ * tone rules requires a new promptVersion ("outft-analysis-v5") and a full
  * evaluation gate pass (ML.md §3.5, §6). Do not edit in place for prod use.
  */
 
 import { AESTHETIC_FAMILIES, AESTHETIC_DEFINITIONS } from './aestheticDefinitions.js';
 
-export const PROMPT_VERSION = 'outft-analysis-v3' as const;
+export const PROMPT_VERSION = 'outft-analysis-v4' as const;
+
+// Broad, easy-to-default-to labels that superficially fit almost any
+// outfit. Not banned — sometimes they really are the best fit — but the
+// prompt explicitly demands the model rule out narrower alternatives
+// first, so these stop being a lazy fallback for uncertainty.
+const CATCH_ALL_LABELS = [
+  'Eclectic', 'Classic', 'Coastal cool', 'Streetwear', 'Minimalist',
+  'Business casual', 'Romantic', 'Understated', 'Preppy', 'Vintage prep',
+];
 
 // Grouped by style family with a one-line definition per label — purely to
 // help the model narrow its search space and disambiguate close labels; the
@@ -61,7 +77,15 @@ Field-by-field instructions:
 
 - styleTraits: 2-6 concise lowercase descriptors of silhouette, texture, palette, or construction (e.g. "structured", "wide leg", "neutral palette"). Each has a "confidence" 0-1. Traits describe the CLOTHES ONLY — never the wearer's body, attractiveness, or worth.
 
-- styleScores: choose the top 4 aesthetics for this outfit from the aesthetic-taxonomy-v2 labels below (verbatim, exact spelling and case — do not invent or rephrase a label). Each label has a one-sentence definition; use it to pick the label that most precisely matches what's visible, not just the closest-sounding name — e.g. don't default to "Quiet luxury" for any expensive-looking neutral outfit when "Stealth wealth", "Old money", or "Minimalist" may fit the actual visual evidence better. The labels are grouped into style families purely to help you search; your top 4 do not need to come from the same family. Provide integer percentages for those 4 labels that sum to exactly 100.
+- styleScores: choose the top 4 aesthetics for this outfit from the aesthetic-taxonomy-v2 labels below (verbatim, exact spelling and case — do not invent or rephrase a label). Provide integer percentages for those 4 labels that sum to exactly 100.
+
+  HOW TO CHOOSE — this is the step most likely to go wrong, so follow it exactly:
+  1. Ground every label in evidence you already wrote down. Look back at the specific garments, colors, and styleTraits you just identified. Each of your 4 aesthetic labels must correspond to concrete visual evidence from THIS photo — not a vague overall impression of "looks put-together" or "looks casual."
+  2. Search narrow before you search broad. The taxonomy is organized into 26 style families specifically so you can scan the FULL family for a precise match before settling on a generic one. A small set of labels are broad umbrella terms that superficially fit almost any outfit: ${CATCH_ALL_LABELS.map((l) => `"${l}"`).join(', ')}. These are not banned, but they are last resorts — before choosing one, scan every other label in its family (and adjacent families) and ask "is there a more specific label that actually matches what I'm seeing?" For example: a relaxed outfit near water is "Coastal cool" only if nothing narrower fits — check "Nautical", "California casual", "Mediterranean", "Coastal grandmother", "Coastal cowgirl", "Surf girl" first. A mixed-pattern outfit is "Eclectic" only after you've ruled out "Print mixing", "Color blocking", "Maximalist", "Art hoe", "Thriftcore". An expensive-looking neutral outfit is "Quiet luxury" only after ruling out "Stealth wealth", "Old money", "Minimalist", "Classic minimalist".
+  3. Uncertainty lowers "confidence", not label precision. If you're not sure exactly what you're looking at, that's what the "confidence" field is for — do not respond to uncertainty by picking a vaguer, safer-sounding label. A confident, specific, wrong-ish guess grounded in real evidence is more useful than a hedge like "Eclectic" or "Classic" chosen because it's hard to be wrong about.
+  4. Different photos should read differently. If an outfit is genuinely plain, minimal basics with nothing distinctive, it is fine and correct for "Minimalist" or "Classic" to legitimately win — the goal is accuracy, not novelty for its own sake. But most real outfits have specific, identifiable signals (a garment silhouette, a color story, a cultural reference, an occasion) that map to one of the hundreds of more specific labels below. Use them when the evidence supports it.
+
+  The labels are grouped into style families purely to help you search; your top 4 do not need to come from the same family.
 
 Aesthetic taxonomy v2, by family (label — definition):
 ${AESTHETIC_TAXONOMY_PROMPT_LIST}
