@@ -127,6 +127,18 @@ export async function uploadAndAnalyze(input: UploadInput): Promise<UploadResult
     });
     if (jobError) return { ok: false, error: `JOB_INSERT_FAILED: ${jobError.message}` };
 
+    // Kick the always-on analyze-outfit Edge Function so the job is picked up
+    // immediately. Historically this relied on a long-running worker process
+    // that was never deployed, so whenever it wasn't running every capture sat
+    // queued until pollAnalysis timed out and the UI fell back to its canned
+    // demo analysis. Fire-and-forget on purpose: the function leases jobs
+    // atomically (skip-locked), so a slow/failed invoke is harmless — the
+    // polling worker, or the next capture's invoke, still drains the queue.
+    // pollAnalysis() below is unchanged and remains the source of truth.
+    supabase.functions
+      .invoke('analyze-outfit', { body: { maxJobs: 2 } })
+      .catch((e) => console.warn('outft: analyze-outfit invoke failed:', e));
+
     return { ok: true, outfitId: outfit.id as string };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
