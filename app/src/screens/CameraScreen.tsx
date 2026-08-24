@@ -152,6 +152,9 @@ export default function CameraScreen() {
   const [savingReceipt, setSavingReceipt] = useState(false);
   // Same-photo payload kept for TRY AGAIN re-runs of the real pipeline.
   const pendingRef = useRef<{ uri: string; base64?: string | null; mt: string } | null>(null);
+  // Guards saveTrace() so one capture is committed to history exactly once
+  // (e.g. closing the receipt after already sharing it). Reset per capture.
+  const savedRef = useRef(false);
 
   // Cycling wait line index while analyzing.
   const [waitIdx, setWaitIdx] = useState(0);
@@ -241,6 +244,7 @@ export default function CameraScreen() {
   const handlePicked = async (uri: string, base64?: string | null, mediaType?: string) => {
     const p = await shrinkForUpload(uri, base64, mediaType);
     pendingRef.current = p;
+    savedRef.current = false; // new capture — allow it to be committed once
     setPhoto(uri);
     setResult(null);
     setIsDemo(false);
@@ -313,19 +317,28 @@ export default function CameraScreen() {
     }
   };
 
-  const closeOverlay = () => {
-    discardOrphan();
-    setPhoto(null); setResult(null); setOverlayOpen(false); setBrand(''); setCaption('');
-    setOutfitId(null); setCanRetry(false); pendingRef.current = null;
-  };
-  const retake = () => {
-    discardOrphan();
+  const resetOverlay = () => {
     setPhoto(null); setResult(null); setOverlayOpen(false); setBrand(''); setCaption('');
     setOutfitId(null); setCanRetry(false); pendingRef.current = null;
   };
 
-  const share = () => {
-    if (!photo || !result) return;
+  /**
+   * Commits the analyzed trace to history — the single place `captures` grows,
+   * which is what Fashion DNA, the streak, and Profile stats are all computed
+   * from.
+   *
+   * This used to live only inside share(), so a trace was recorded ONLY if the
+   * user tapped "share trace". Analyzing an outfit and then closing the
+   * receipt discarded it (and tombstoned the server row), so Fashion DNA never
+   * updated unless you also posted the look publicly. In a "trace · keep ·
+   * revisit" journal, keeping is the default and sharing is the extra step.
+   *
+   * Returns the saved record, or null if there was nothing to save. Guards
+   * against double-saving the same capture (close after share).
+   */
+  const saveTrace = (): LatestOutfit | null => {
+    if (!photo || !result || savedRef.current) return null;
+    savedRef.current = true;
     const trimmedBrand = brand.trim();
     const trimmedCaption = caption.trim();
     const isReal = !!outfitId && !isDemo;
@@ -352,15 +365,38 @@ export default function CameraScreen() {
       caption: trimmedCaption || undefined,
       capturedAt: capturedAt.toISOString(),
     };
-    // First trace of the day? Celebrate the streak before heading home.
-    const firstToday = !captures.some((c) => {
-      const d = new Date(c.capturedAt);
-      return !isNaN(d.getTime()) && dayKeyOf(d) === dayKeyOf(new Date());
-    });
     update({
       latestOutfit: record,
       captures: [record, ...captures],
       outfitCount: outfitCount + 1,
+    });
+    return record;
+  };
+
+  // Closing the receipt KEEPS the trace — it's already been analyzed, and the
+  // whole point of the app is that it goes into your record. Only an explicit
+  // "retake" throws it away.
+  const closeOverlay = () => {
+    // If there was nothing to keep (analysis still running, or it failed and
+    // there's no result), fall back to the old behavior and tombstone the
+    // uploaded row — otherwise closing would leave an orphan server row that
+    // never becomes a real trace.
+    if (!saveTrace()) discardOrphan();
+    resetOverlay();
+  };
+
+  const retake = () => {
+    discardOrphan();
+    resetOverlay();
+  };
+
+  const share = () => {
+    const record = saveTrace();
+    if (!record) { resetOverlay(); return; }
+    // First trace of the day? Celebrate the streak before heading home.
+    const firstToday = !captures.some((c) => {
+      const d = new Date(c.capturedAt);
+      return !isNaN(d.getTime()) && dayKeyOf(d) === dayKeyOf(new Date());
     });
     if (firstToday) {
       setOverlayOpen(false);
