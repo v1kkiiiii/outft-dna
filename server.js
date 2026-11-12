@@ -4,6 +4,7 @@ import cors from 'cors';
 import Anthropic from '@anthropic-ai/sdk';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { analysisAllowance, logAiCost, registerGrowthRoutes, userFromRequest } from './server/growth.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -29,10 +30,17 @@ app.post('/api/analyze', async (req, res) => {
   if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set on server' });
 
   const client = new Anthropic({ apiKey });
+  const userId = await userFromRequest(req);
+  const allowance = await analysisAllowance(userId);
+  if (!allowance.allowed) {
+    return res.status(402).json({ error: 'You have used your free analyses for this month.', code: 'LIMIT_REACHED', ...allowance });
+  }
+  const model = 'claude-sonnet-5';
+  let usage;
 
   try {
     const message = await client.messages.create({
-      model: 'claude-sonnet-5',
+      model,
       max_tokens: 1000,
       system: `You are outft.'s style DNA engine. Analyze outfit photos and return ONLY a JSON object with no markdown, no preamble, just raw JSON:
 {"aesthetics":[{"label":"...","pct":0}],"tags":["..."],"insight":"..."}
@@ -552,16 +560,18 @@ MISCELLANEOUS NICHE:
       }]
     });
 
+    usage = message.usage;
     const raw = message.content[0]?.text || '';
     const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) return res.status(502).json({ error: 'The style analysis was incomplete. Please try again.' });
-    const result = JSON.parse(match[0]);
-    if (!Array.isArray(result.aesthetics) || !Array.isArray(result.tags) || typeof result.insight !== 'string') {
-      return res.status(502).json({ error: 'The style analysis was incomplete. Please try again.' });
-    }
+    const result = match ? JSON.parse(match[0]) : null;
+    const complete = result && Array.isArray(result.aesthetics) && Array.isArray(result.tags) && typeof result.insight === 'string';
+    await logAiCost({ userId, model, usage, ok: !!complete });
+    if (!complete) return res.status(502).json({ error: 'The style analysis was incomplete. Please try again.' });
     res.json(result);
   } catch (err) {
-    console.error(err);
+    if (usage) await logAiCost({ userId, model, usage, ok: false });
+    // Log the status and message only, never the request (it holds the photo).
+    console.error('outft: analyze failed:', err?.status ?? '', err?.message ?? err);
     const status = typeof err?.status === 'number' ? err.status : 500;
     const detail = err?.error?.error?.message || err?.message || '';
     res.status(status).json({
@@ -571,6 +581,8 @@ MISCELLANEOUS NICHE:
     });
   }
 });
+
+registerGrowthRoutes(app);
 
 app.use((err, _req, res, next) => {
   if (err?.type === 'entity.too.large') {
