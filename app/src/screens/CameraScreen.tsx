@@ -148,7 +148,11 @@ export default function CameraScreen() {
   const [celebrateStreak, setCelebrateStreak] = useState<number | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
-  const receiptRef = useRef<View>(null);
+  // Space left for the viewfinder; the 3:4 frame is sized to fit inside it so
+  // the category chips and shutter row below never get pushed off screen.
+  const [stage, setStage] = useState({ w: 0, h: 0 });
+  const frameW = Math.min(stage.w - 20, (stage.h * 3) / 4);
+  const receiptRef = useRef<React.ComponentRef<typeof View>>(null);
   const [savingReceipt, setSavingReceipt] = useState(false);
   // Same-photo payload kept for TRY AGAIN re-runs of the real pipeline.
   const pendingRef = useRef<{ uri: string; base64?: string | null; mt: string } | null>(null);
@@ -442,7 +446,11 @@ export default function CameraScreen() {
         <View style={{ width: 20 }} />
       </View>
 
-      <View style={s.viewfinder}>
+      <View
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+        onLayout={(e) => setStage({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
+      >
+      <View style={[s.viewfinder, frameW > 0 && { width: frameW, height: (frameW * 4) / 3 }]}>
         {camGranted ? (
           <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} />
         ) : (
@@ -459,6 +467,7 @@ export default function CameraScreen() {
             </Text>
           </Pressable>
         )}
+      </View>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipRow} contentContainerStyle={{ gap: 6, paddingHorizontal: 22 }}>
@@ -508,7 +517,7 @@ export default function CameraScreen() {
             <Text style={{ fontSize: 19, color: colors.ink }}>×</Text>
           </Pressable>
           <ScrollView
-            style={{ maxHeight: Dimensions.get('window').height * 0.78, alignSelf: 'stretch' }}
+            style={{ flex: 1, alignSelf: 'stretch' }}
             contentContainerStyle={{ alignItems: 'center', paddingVertical: 8 }}
             showsVerticalScrollIndicator={false}
           >
@@ -600,7 +609,8 @@ const s = StyleSheet.create({
   },
   catChipLabel: { fontFamily: fonts.sansMedium, fontSize: 11, color: colors.taupe },
   viewfinder: {
-    flex: 1, marginHorizontal: 10, borderRadius: 18,
+    // Portrait 3:4 frame, centered — matches the photo the camera captures.
+    width: '94%', aspectRatio: 3 / 4, borderRadius: 18,
     backgroundColor: colors.cream, overflow: 'hidden',
     alignItems: 'center', justifyContent: 'center',
   },
@@ -621,8 +631,11 @@ const s = StyleSheet.create({
   },
   shutter: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.ink },
   overlay: {
-    ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.96)',
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22,
+    ...StyleSheet.absoluteFill, backgroundColor: 'rgba(255,255,255,0.96)',
+    // Content scrolls at the top; retake / share stay pinned to the bottom edge
+    // like the primary action in Instagram or Pinterest.
+    alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 22,
+    paddingTop: 52, paddingBottom: 16,
   },
   overlayClose: { position: 'absolute', top: 18, right: 22, zIndex: 10 },
   card: {
@@ -650,7 +663,7 @@ const s = StyleSheet.create({
   barcode: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', marginTop: 14 },
   footer: { fontFamily: fonts.sans, fontSize: 8, color: colors.faint, textAlign: 'center', marginTop: 8, letterSpacing: 1 },
   celebration: {
-    ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.97)',
+    ...StyleSheet.absoluteFill, backgroundColor: 'rgba(255,255,255,0.97)',
     alignItems: 'center', justifyContent: 'center', zIndex: 20,
   },
   celebrationBrand: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 3, color: colors.sand },
@@ -662,5 +675,5 @@ const s = StyleSheet.create({
     fontFamily: fonts.sans, fontSize: 10, letterSpacing: 1, color: colors.taupe,
     textAlign: 'center', textDecorationLine: 'underline',
   },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 18, width: '100%', maxWidth: 290 },
+  actions: { flexDirection: 'row', gap: 10, marginTop: 12, width: '100%', maxWidth: 340 },
 });

@@ -118,7 +118,7 @@ export default function DnaScreen() {
         {hasDna && (
           <View style={{ marginTop: 24, gap: 12 }}>
             {dna.map((d, i) => (
-              <DnaRow key={d.label} label={d.label} pct={d.pct} color={dnaColors[i % dnaColors.length]} delay={i * 90} />
+              <DnaRow key={`${d.label}-${i}`}label={d.label} pct={d.pct} color={dnaColors[i % dnaColors.length]} delay={i * 90} />
             ))}
           </View>
         )}

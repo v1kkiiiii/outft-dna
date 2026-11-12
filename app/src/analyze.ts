@@ -17,8 +17,11 @@
 // makes guest/demo captures real instead of canned.
 import { AnalysisResult, analyzeOutfit as mockAnalyze } from './data';
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const SUPABASE_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+// The original Supabase project no longer resolves, so analysis goes to the
+// Railway server's /api/analyze (same request/response shape). Override with
+// EXPO_PUBLIC_ANALYZE_URL if the deployment moves.
+const ANALYZE_URL =
+  process.env.EXPO_PUBLIC_ANALYZE_URL ?? 'https://outft-dna-production.up.railway.app/api/analyze';
 
 export interface AnalyzeInput {
   uri: string;
@@ -39,18 +42,13 @@ export interface AnalyzeOutcome {
  * completes rather than dead-ending.
  */
 export async function analyzeOutfitReal(input: AnalyzeInput): Promise<AnalyzeOutcome> {
-  if (!SUPABASE_URL || !input.base64) {
+  if (!input.base64) {
     return { result: await mockAnalyze(input.uri), isMock: true };
   }
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/analyze-image`, {
+    const res = await fetch(ANALYZE_URL, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        // analyze-image runs with verify_jwt disabled so guest captures work;
-        // the anon/publishable key is still sent for normal project routing.
-        ...(SUPABASE_KEY ? { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } : {}),
-      },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         imageBase64: input.base64,
         mediaType: input.mediaType ?? 'image/jpeg',

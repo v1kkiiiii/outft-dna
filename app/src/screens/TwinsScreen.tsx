@@ -87,7 +87,7 @@ export default function TwinsScreen() {
             <DnaWheel data={dna} size={130} />
             <View style={{ flex: 1, marginLeft: 16, gap: 10 }}>
               {top3.map((d, i) => (
-                <View key={d.label} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View key={`${d.label}-${i}`} style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: dnaColors[i % dnaColors.length], marginRight: 8 }} />
                   <Text style={{ flex: 1, fontFamily: fonts.sans, fontSize: 12, color: colors.muted }}>{d.label}</Text>
                   <Text style={{ fontFamily: fonts.serif, fontSize: 16, color: colors.ink }}>{d.pct}%</Text>

@@ -1,13 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
-import { Post, postIdxFromId } from '../data';
+import { BRAND_PICKS, buildPosts, ECHO_POSTS, Post, postIdxFromId } from '../data';
 import { LatestOutfit, useApp } from '../state';
-import { BellIcon, CommentIcon, initialsFrom, Photo, pressDim, SectionLabel } from '../ui';
+import { BellIcon, CommentIcon, initialsFrom, Photo, pressDim } from '../ui';
 import { fetchMyOutfits } from '../lib/historyApi';
 import { fetchPlacements, HOME_FALLBACK } from '../lib/adsApi';
-
-const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+import { STYLE_FAMILIES } from '../styles';
 
 // Local calendar-day key (YYYY-MM-DD) for a date.
 function dayKey(d: Date): string {
@@ -33,16 +32,31 @@ function captureToPost(c: LatestOutfit, profileName: string, avatarUri: string |
   };
 }
 
+const FILTERS = ['All', ...STYLE_FAMILIES.map((f) => f.name)];
+
+// Which style families a post belongs to. Real captures match by their
+// analysed aesthetic labels; placeholder discover posts get a stable family
+// from their id so every pill has content until the recs database is loaded.
+function familiesOf(p: Post, labels: string[] | undefined): string[] {
+  if (labels && labels.length > 0) {
+    const want = labels.map((l) => l.toLowerCase());
+    return STYLE_FAMILIES
+      .filter((f) => f.labels.some((l) => want.includes(l.toLowerCase())))
+      .map((f) => f.name);
+  }
+  return [STYLE_FAMILIES[p.idx % STYLE_FAMILIES.length].name];
+}
+
+// Card heights cycle so the two columns stagger like a Pinterest board.
+const ASPECTS = [1.25, 1.55, 1.1, 1.45, 1.3, 1.65];
+
 export default function HomeScreen() {
-  const hourNow = new Date().getHours();
-  const greeting = hourNow < 12 ? 'Good morning' : hourNow < 18 ? 'Good afternoon' : 'Good evening';
-  const { navigate, profileName, avatarUri, latestOutfit, captures } = useApp();
-  const firstName = profileName.split(' ')[0];
+  const { navigate, profileName, avatarUri, captures } = useApp();
   const [serverItems, setServerItems] = useState<LatestOutfit[]>([]);
   const [homeAd, setHomeAd] = useState<Post>(HOME_FALLBACK[0]);
+  const [filter, setFilter] = useState('All');
+  const [liked, setLiked] = useState<Record<number, boolean>>({});
 
-  // Remote sponsored spotlight; fetchPlacements falls back on any error,
-  // so the card always has content.
   useEffect(() => {
     let alive = true;
     fetchPlacements('home')
@@ -87,210 +101,185 @@ export default function HomeScreen() {
     return n;
   }, [captureDays]);
 
-  // Current week, Monday through Sunday.
-  const week = useMemo(() => {
-    const today = new Date();
-    const todayKey = dayKey(today);
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-    return DAYS.map((label, i) => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const key = dayKey(d);
-      return { label, filled: captureDays.has(key), isToday: key === todayKey };
-    });
-  }, [captureDays]);
+  const doneToday = captureDays.has(dayKey(new Date()));
 
-  const todayCapture = allCaptures.find((c) => {
-    const d = new Date(c.capturedAt);
-    return !isNaN(d.getTime()) && dayKey(d) === dayKey(new Date());
-  });
-  const newestCapture = todayCapture ?? allCaptures[0];
-  const insight = latestOutfit?.result.insight;
+  // The feed: your own real captures first, then discover posts. The discover
+  // posts are placeholders until the outfit/brand recs database is connected.
+  const feed = useMemo(() => {
+    const mine = allCaptures.map((c) => ({
+      post: captureToPost(c, profileName, avatarUri),
+      labels: c.result.aesthetics.map((a) => a.label),
+    }));
+    const discover = [...ECHO_POSTS, ...BRAND_PICKS, ...buildPosts(60).map((p, i) => ({
+      ...p, idx: 1000 + i, handle: ['@maya', '@lila', '@jade', '@noor', '@ari', '@theo'][i % 6],
+    }))].map((post) => ({ post, labels: undefined as string[] | undefined }));
+    const all = [...mine, ...discover];
+    const filtered = (filter === 'All'
+      ? all
+      : all.filter(({ post, labels }) => familiesOf(post, labels).includes(filter))
+    ).map(({ post }) => post);
+    // Slot the sponsored placement in after the first few cards.
+    const out = [...filtered];
+    if (out.length > 3) {
+      out.splice(3, 0, { ...homeAd, sponsor: homeAd.sponsor ?? { brand: homeAd.handle, shopUrl: '', affiliateId: '' } });
+    }
+    return out;
+  }, [allCaptures, profileName, avatarUri, filter, homeAd]);
 
-  // Streak number springs in on mount.
-  const streakAnim = useRef(new Animated.Value(0.5)).current;
-  useEffect(() => {
-    Animated.spring(streakAnim, {
-      toValue: 1, friction: 5, tension: 60, useNativeDriver: true,
-    }).start();
-  }, [streakAnim]);
+  const left = feed.filter((_, i) => i % 2 === 0);
+  const right = feed.filter((_, i) => i % 2 === 1);
 
-  const inviteFriends = () => {
-    Share.share({ message: 'tracing my style DNA on OUTFT — join me' }).catch(() => {});
+  const renderCard = (p: Post, i: number, col: number) => {
+    const aspect = ASPECTS[(i * 2 + col + p.idx) % ASPECTS.length];
+    const isLiked = !!liked[p.idx];
+    return (
+      <Pressable
+        key={`${p.idx}-${col}-${i}`}
+        style={({ pressed }) => [s.card, pressed && { opacity: 0.9, transform: [{ scale: 0.985 }] }]}
+        onPress={() => navigate('postDetail', { post: p })}
+      >
+        <View>
+          <Photo uri={p.photoUri} tone={p.tone} style={[s.cardPhoto, { aspectRatio: 1 / aspect }]} />
+          {p.sponsor ? (
+            <View style={s.badge}><Text style={s.badgeText}>SPONSORED</Text></View>
+          ) : null}
+        </View>
+        <Text style={s.cardCaption} numberOfLines={2}>{p.caption}</Text>
+        <View style={s.cardMeta}>
+          <View style={[s.ava, { backgroundColor: p.color }]}>
+            <Text style={s.avaText}>{p.ava.slice(0, 2)}</Text>
+          </View>
+          <Text style={s.handle} numberOfLines={1}>{p.handle}</Text>
+          {p.sponsor ? null : (
+            <Pressable
+              hitSlop={10}
+              onPress={() => setLiked((m) => ({ ...m, [p.idx]: !m[p.idx] }))}
+            >
+              <Text style={[s.heart, isLiked && { color: colors.likeRed }]}>{isLiked ? '♥' : '♡'}</Text>
+            </Pressable>
+          )}
+        </View>
+      </Pressable>
+    );
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.paper }} contentContainerStyle={s.content}>
-      {/* Header */}
+    <View style={{ flex: 1, backgroundColor: colors.paper }}>
       <View style={s.headerRow}>
         <Text style={s.wordmark}>outft.</Text>
-        <View style={{ flexDirection: 'row', gap: 18 }}>
+        <View style={{ flexDirection: 'row', gap: 20 }}>
           <Pressable onPress={() => navigate('messages')} hitSlop={8} style={pressDim}>
-            <CommentIcon size={20} />
+            <CommentIcon size={22} />
           </Pressable>
           <Pressable onPress={() => navigate('activity')} hitSlop={8} style={pressDim}>
-            <BellIcon size={20} />
+            <BellIcon size={22} />
           </Pressable>
         </View>
       </View>
 
-      {/* Greeting */}
-      <Text style={s.h1}>{greeting}, {firstName}.</Text>
-      <Text style={s.h1Italic}>Your trace continues.</Text>
-
-      {/* Streak card */}
-      <Pressable style={({ pressed }) => [s.streakCard, pressed && { transform: [{ scale: 0.97 }] }]} onPress={() => navigate('profile')}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-          <Animated.Text style={[s.streakNum, { transform: [{ scale: streakAnim }], opacity: streakAnim }]}>{streak}</Animated.Text>
-          <View style={{ flex: 1 }}>
-            <Text style={s.streakLabel}>Day streak</Text>
-            <Text style={s.streakSub}>
-              {allCaptures.length === 0
-                ? 'capture your first trace to start a streak'
-                : streak === 0
-                  ? 'start again — the record keeps everything'
-                  : 'capture today to keep it alive'}
-            </Text>
-          </View>
-        </View>
-        <View style={s.daysRow}>
-          {week.map((d, i) => {
-            if (d.isToday) {
-              return (
-                <Pressable
-                  key={i}
-                  style={[s.dayCircle, s.dayToday, d.filled && s.dayFilled]}
-                  onPress={() => navigate('camera')}
-                >
-                  <Text style={[s.dayText, d.filled && { color: colors.paper }]}>{d.label}</Text>
-                </Pressable>
-              );
-            }
-            if (d.filled) {
-              return (
-                <View key={i} style={[s.dayCircle, s.dayFilled]}>
-                  <Text style={[s.dayText, { color: colors.paper }]}>{d.label}</Text>
-                </View>
-              );
-            }
-            return (
-              <View key={i} style={[s.dayCircle, s.dayFuture]}>
-                <Text style={[s.dayText, { color: colors.faint }]}>{d.label}</Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
+        {/* Story-style row: add today's trace + streak */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.storyRow}>
+          <Pressable style={s.story} onPress={() => navigate('camera')}>
+            <View style={[s.storyRing, !doneToday && s.storyRingOpen]}>
+              <View style={s.storyInner}>
+                <Text style={s.storyPlus}>{doneToday ? '✓' : '+'}</Text>
               </View>
+            </View>
+            <Text style={s.storyLabel}>{doneToday ? 'today ✓' : 'your trace'}</Text>
+          </Pressable>
+          <Pressable style={s.story} onPress={() => navigate('profile')}>
+            <View style={[s.storyRing, s.storyRingOpen]}>
+              <View style={s.storyInner}>
+                <Text style={s.storyNum}>{streak}</Text>
+              </View>
+            </View>
+            <Text style={s.storyLabel}>day streak</Text>
+          </Pressable>
+          <Pressable style={s.story} onPress={() => navigate('twins')}>
+            <View style={[s.storyRing, s.storyRingOpen]}>
+              <View style={s.storyInner}><Text style={s.storyPlus}>◎</Text></View>
+            </View>
+            <Text style={s.storyLabel}>twins</Text>
+          </Pressable>
+          <Pressable style={s.story} onPress={() => navigate('dna')}>
+            <View style={[s.storyRing, s.storyRingOpen]}>
+              <View style={s.storyInner}><Text style={s.storyPlus}>✦</Text></View>
+            </View>
+            <Text style={s.storyLabel}>your DNA</Text>
+          </Pressable>
+        </ScrollView>
+
+        {/* Filter pills */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pills}>
+          {FILTERS.map((f) => {
+            const sel = f === filter;
+            return (
+              <Pressable
+                key={f}
+                onPress={() => setFilter(f)}
+                style={[s.pill, sel && { backgroundColor: colors.ink, borderColor: colors.ink }]}
+              >
+                <Text style={[s.pillText, sel && { color: colors.paper }]}>{f}</Text>
+              </Pressable>
             );
           })}
-        </View>
-      </Pressable>
+        </ScrollView>
 
-      {/* Today's trace */}
-      <SectionLabel style={{ marginTop: 30, marginBottom: 12 }}>
-        {todayCapture || !newestCapture ? "TODAY'S TRACE" : 'LATEST TRACE'}
-      </SectionLabel>
-      {newestCapture ? (
-        <Pressable style={pressDim} onPress={() => navigate('postDetail', { post: captureToPost(newestCapture, profileName, avatarUri) })}>
-          <Photo uri={newestCapture.photoUri} tone="#DFDFDF" style={s.todayPhoto} />
-          <View style={s.todayBar}>
-            <Text style={s.todayBarText}>
-              {(todayCapture ? "Today's trace · " : 'Latest trace · ')
-                + new Date(newestCapture.capturedAt).toLocaleDateString()}
-            </Text>
-            <Pressable onPress={() => navigate('camera')} hitSlop={10}>
-              <Text style={{ fontSize: 14, color: colors.ink }}>✎</Text>
-            </Pressable>
+        {/* Masonry grid */}
+        {feed.length === 0 ? (
+          <Text style={s.empty}>nothing here yet — try another filter</Text>
+        ) : (
+          <View style={s.grid}>
+            <View style={s.col}>{left.map((p, i) => renderCard(p, i, 0))}</View>
+            <View style={s.col}>{right.map((p, i) => renderCard(p, i, 1))}</View>
           </View>
-        </Pressable>
-      ) : (
-        <View style={s.emptyTrace}>
-          <Text style={s.emptyTraceText}>No trace yet today.</Text>
-          <Pressable style={({ pressed }) => [s.emptyTracePill, pressed && { transform: [{ scale: 0.97 }] }]} onPress={() => navigate('camera')}>
-            <Text style={s.emptyTracePillText}>CAPTURE YOUR FIRST TRACE</Text>
-          </Pressable>
-        </View>
-      )}
-
-      {/* Insight card — only when a real insight exists */}
-      {insight ? (
-        <View style={s.insightCard}>
-          <Text style={s.insightText}>{insight}</Text>
-        </View>
-      ) : null}
-
-      {/* Brand spotlight — one sponsored slot per style lane, served from
-          sponsored_placements (surface 'home') with a hardcoded fallback. */}
-      <View style={s.sponsorCard}>
-        <Text style={s.sponsorLabel}>SPONSORED · {homeAd.dna.toUpperCase()}</Text>
-        <Text style={s.sponsorBrand}>{homeAd.handle}</Text>
-        <Text style={s.sponsorCopy}>{homeAd.caption}</Text>
-      </View>
-
-      {/* Friends */}
-      <SectionLabel style={{ marginTop: 32, marginBottom: 12 }}>FRIENDS</SectionLabel>
-      <View style={s.friendsCard}>
-        <Text style={s.friendsCopy}>
-          OUTFT is better with friends. Invite yours — their traces will appear here.
-        </Text>
-        <Pressable style={({ pressed }) => [s.invitePill, pressed && { transform: [{ scale: 0.97 }] }]} onPress={inviteFriends}>
-          <Text style={s.invitePillText}>INVITE FRIENDS</Text>
-        </Pressable>
-      </View>
-    </ScrollView>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  content: { paddingHorizontal: 22, paddingTop: 16, paddingBottom: 40 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  wordmark: { fontFamily: fonts.serif, fontSize: 22, color: colors.ink },
-  h1: { fontFamily: fonts.serif, fontSize: 28, color: colors.ink, marginTop: 22 },
-  h1Italic: { fontFamily: fonts.serifItalic, fontSize: 28, color: colors.ink },
-  streakCard: { borderWidth: 1, borderColor: colors.line, borderRadius: 12, padding: 16, marginTop: 22 },
-  streakNum: { fontFamily: fonts.serif, fontSize: 44, color: colors.ink },
-  streakLabel: { fontFamily: fonts.sansMedium, fontSize: 13, color: colors.ink },
-  streakSub: { fontFamily: fonts.sans, fontSize: 11, color: colors.sand, marginTop: 2 },
-  daysRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
-  dayCircle: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  dayFilled: { backgroundColor: colors.ink },
-  dayToday: { borderWidth: 1.5, borderColor: colors.ink },
-  dayFuture: { borderWidth: 1, borderColor: colors.line },
-  dayText: { fontFamily: fonts.sansMedium, fontSize: 11, color: colors.ink },
-  todayPhoto: { width: '100%', height: 200, borderTopLeftRadius: 12, borderTopRightRadius: 12 },
-  todayBar: {
+  headerRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: colors.cream, borderBottomLeftRadius: 12, borderBottomRightRadius: 12,
-    paddingVertical: 12, paddingHorizontal: 16,
+    paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8,
   },
-  todayBarText: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted },
-  emptyTrace: {
-    backgroundColor: colors.cream, borderRadius: 12, paddingVertical: 36,
-    paddingHorizontal: 20, alignItems: 'center',
+  wordmark: { fontFamily: fonts.serif, fontSize: 26, color: colors.ink },
+  storyRow: { paddingHorizontal: 12, paddingVertical: 8, gap: 14 },
+  story: { alignItems: 'center', width: 70 },
+  storyRing: {
+    width: 66, height: 66, borderRadius: 33, borderWidth: 2, borderColor: colors.ink,
+    alignItems: 'center', justifyContent: 'center',
   },
-  emptyTraceText: { fontFamily: fonts.serifItalic, fontSize: 17, color: colors.ink },
-  emptyTracePill: {
-    marginTop: 16, borderWidth: 1, borderColor: colors.ink, borderRadius: 999,
-    paddingVertical: 8, paddingHorizontal: 16,
+  storyRingOpen: { borderColor: colors.sand },
+  storyInner: {
+    width: 56, height: 56, borderRadius: 28, backgroundColor: colors.cream,
+    alignItems: 'center', justifyContent: 'center',
   },
-  emptyTracePillText: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 1.5, color: colors.ink },
-  insightCard: { backgroundColor: colors.cream, borderRadius: 12, padding: 18, marginTop: 24 },
-  insightText: { fontFamily: fonts.serifItalic, fontSize: 15, lineHeight: 22, color: colors.ink },
-  sponsorCard: {
-    borderWidth: 1, borderColor: colors.tagBorder, borderRadius: 12,
-    padding: 16, marginTop: 14,
+  storyPlus: { fontFamily: fonts.sans, fontSize: 24, color: colors.ink },
+  storyNum: { fontFamily: fonts.serif, fontSize: 26, color: colors.ink },
+  storyLabel: { fontFamily: fonts.sans, fontSize: 11, color: colors.muted, marginTop: 5 },
+  pills: { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+  pill: {
+    borderWidth: 1, borderColor: colors.line, borderRadius: 999,
+    paddingVertical: 8, paddingHorizontal: 16, backgroundColor: colors.cream,
   },
-  sponsorLabel: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 1.5, color: colors.sand, marginBottom: 6 },
-  sponsorBrand: { fontFamily: fonts.serif, fontSize: 18, color: colors.ink },
-  sponsorCopy: { fontFamily: fonts.sans, fontSize: 12, color: colors.taupe, marginTop: 3 },
-  friendsCard: {
-    borderWidth: 1, borderColor: colors.line, borderRadius: 12,
-    paddingVertical: 28, paddingHorizontal: 22, alignItems: 'center',
+  pillText: { fontFamily: fonts.sansMedium, fontSize: 13, color: colors.ink },
+  grid: { flexDirection: 'row', paddingHorizontal: 8, gap: 8 },
+  col: { flex: 1 },
+  card: { marginBottom: 14 },
+  cardPhoto: { width: '100%', borderRadius: 16 },
+  cardCaption: { fontFamily: fonts.sansMedium, fontSize: 13, color: colors.ink, marginTop: 7, paddingHorizontal: 4 },
+  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 5, paddingHorizontal: 4 },
+  ava: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  avaText: { fontFamily: fonts.sansMedium, fontSize: 8, color: colors.paper },
+  handle: { flex: 1, fontFamily: fonts.sans, fontSize: 11, color: colors.taupe },
+  heart: { fontSize: 18, color: colors.taupe },
+  badge: {
+    position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(26,25,22,0.75)',
+    borderRadius: 999, paddingVertical: 3, paddingHorizontal: 8,
   },
-  friendsCopy: {
-    fontFamily: fonts.serifItalic, fontSize: 16, lineHeight: 24,
-    color: colors.ink, textAlign: 'center',
-  },
-  invitePill: {
-    marginTop: 18, borderWidth: 1, borderColor: colors.ink, borderRadius: 999,
-    paddingVertical: 9, paddingHorizontal: 18,
-  },
-  invitePillText: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 1.5, color: colors.ink },
+  badgeText: { fontFamily: fonts.sans, fontSize: 8, letterSpacing: 1.2, color: colors.paper },
+  empty: { fontFamily: fonts.serifItalic, fontSize: 16, color: colors.taupe, textAlign: 'center', marginTop: 50 },
 });

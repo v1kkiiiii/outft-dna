@@ -137,7 +137,7 @@ export function DnaWheel({ data, size = 160, centerLabel = 'you', palette }: {
         {data.map((d, i) => {
           const len = (d.pct / 100) * c;
           const el = (
-            <Circle key={d.label} cx={90} cy={90} r={r} fill="none"
+            <Circle key={`${d.label}-${i}`} cx={90} cy={90} r={r} fill="none"
               stroke={ramp[i % ramp.length]} strokeWidth={22}
               strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-offset} />
           );
@@ -281,12 +281,13 @@ const s = StyleSheet.create({
   polNum: { fontFamily: fonts.serifItalic, fontSize: 11, color: colors.ink, marginTop: 1 },
   bnav: {
     flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center',
-    paddingTop: 10, paddingBottom: 24, borderTopWidth: 1, borderTopColor: colors.line,
+    paddingTop: 12, paddingBottom: 20, borderTopWidth: 1, borderTopColor: colors.line,
     backgroundColor: colors.paper,
   },
   nb: { alignItems: 'center', gap: 4, paddingHorizontal: 14 },
   navIcon: { height: 24, alignItems: 'center', justifyContent: 'center' },
-  nbLabel: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 1.5, color: colors.faint },
+  // Icon-only tab bar, like Instagram / Pinterest.
+  nbLabel: { display: 'none', fontFamily: fonts.sans, fontSize: 9, letterSpacing: 1.5, color: colors.faint },
   toastWrap: { position: 'absolute', bottom: 100, left: 0, right: 0, alignItems: 'center' },
   toast: { backgroundColor: colors.ink, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 20 },
   toastText: { fontFamily: fonts.sans, fontSize: 12, color: colors.paper, textTransform: 'lowercase' },

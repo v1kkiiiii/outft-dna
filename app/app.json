@@ -53,13 +53,9 @@
           "savePhotosPermission": "OUTFT saves photos and receipts to your camera roll when you choose to."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-status-bar"
     ],
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F4F1EA"
-    },
     "extra": {
       "eas": {
         "projectId": "225fce5b-31d5-47b4-87e9-a7ab13c1209f"
