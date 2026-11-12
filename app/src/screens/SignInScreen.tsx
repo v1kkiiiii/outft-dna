@@ -209,7 +209,7 @@ export default function SignInScreen() {
                 <Text style={s.guestText}>EXPLORE AS GUEST</Text>
               </Pressable>
               <Text style={s.legal}>
-                By continuing, you agree to the Terms of Use and Privacy Policy.
+                New accounts review the Terms of Service and Privacy Policy before uploading anything.
               </Text>
             </View>
           </View>

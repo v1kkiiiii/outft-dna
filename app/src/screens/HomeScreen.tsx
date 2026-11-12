@@ -186,7 +186,7 @@ export default function HomeScreen() {
                 <Text style={s.storyPlus}>{doneToday ? '✓' : '+'}</Text>
               </View>
             </View>
-            <Text style={s.storyLabel}>{doneToday ? 'today ✓' : 'your trace'}</Text>
+            <Text style={s.storyLabel}>{doneToday ? 'today' : 'your trace'}</Text>
           </Pressable>
           <Pressable style={s.story} onPress={() => navigate('profile')}>
             <View style={[s.storyRing, s.storyRingOpen]}>

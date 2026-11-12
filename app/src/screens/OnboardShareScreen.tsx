@@ -51,7 +51,7 @@ export default function OnboardShareScreen() {
         </Text>
 
         <View style={s.cardWrap}>
-          {onboardingResult ? <DnaShareCard ref={cardRef} result={onboardingResult} name={first} /> : null}
+          {onboardingResult ? <DnaShareCard ref={cardRef} result={onboardingResult} name={first} width={210} /> : null}
         </View>
 
         {note ? <Text style={s.note}>{note}</Text> : null}

@@ -11,9 +11,9 @@ import { AnalysisResult } from '../data';
 
 export type ViewRef = React.ComponentRef<typeof View>;
 
-export const DnaShareCard = React.forwardRef<ViewRef, { result: AnalysisResult; name: string }>(
-  ({ result, name }, ref) => (
-    <View ref={ref} collapsable={false} style={card.root}>
+export const DnaShareCard = React.forwardRef<ViewRef, { result: AnalysisResult; name: string; width?: number }>(
+  ({ result, name, width = 270 }, ref) => (
+    <View ref={ref} collapsable={false} style={[card.root, { width }]}>
       <Text style={card.brand}>OUTFT.</Text>
       <Text style={card.kicker}>STYLE DNA</Text>
       <Text style={card.name}>{name}</Text>
@@ -74,7 +74,7 @@ export async function exportStory(ref: React.RefObject<ViewRef | null>): Promise
 
 const card = StyleSheet.create({
   root: {
-    width: 270, aspectRatio: 9 / 16, backgroundColor: colors.paper, padding: 22,
+    aspectRatio: 9 / 16, backgroundColor: colors.paper, padding: 22,
     alignItems: 'center', justifyContent: 'center', borderRadius: 14,
     shadowColor: colors.ink, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18,
     shadowRadius: 14, elevation: 4,
