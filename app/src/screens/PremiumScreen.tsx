@@ -5,12 +5,12 @@ import { useApp } from '../state';
 
 const CREAM = colors.creamDark;
 
+// Premium is not built yet; this lists what we plan to include, labelled as
+// planned so the screen never claims features that do not exist.
 const FEATURES = [
   'Unlimited lifetime backlog',
-  'Advanced DNA analytics',
-  'Exclusive themes & badge frames',
-  'Monthly premium reports',
-  'Streak protection & rare collectibles',
+  'Deeper DNA breakdowns',
+  'Monthly style reports',
 ];
 
 export default function PremiumScreen() {
@@ -32,7 +32,7 @@ export default function PremiumScreen() {
             fontFamily: fonts.sans, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase',
             color: colors.faint, marginTop: 8,
           }}>
-            read deeper into your trace
+            planned features, not live yet
           </Text>
         </View>
 
@@ -54,7 +54,7 @@ export default function PremiumScreen() {
           <Text style={s.ctaText}>JOIN THE WAITLIST</Text>
         </Pressable>
         <Text style={{ fontFamily: fonts.sans, fontSize: 10, color: colors.faint, textAlign: 'center', marginTop: 12 }}>
-          $8.99/mo · Launching soon
+          Not available yet. Pricing will be shown before any purchase.
         </Text>
       </View>
     </View>

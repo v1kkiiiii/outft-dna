@@ -7,7 +7,9 @@ import * as MediaLibrary from 'expo-media-library';
 import { captureRef } from 'react-native-view-shot';
 import { colors, fonts } from '../theme';
 import { AnalysisResult, CATEGORIES } from '../data';
-import { analyzeOutfitReal } from '../analyze';
+import { AnalyzeError, analyzeOutfitReal } from '../analyze';
+import { allowanceFrom } from '../lib/allowance';
+import { track } from '../lib/track';
 import { backendAvailable } from '../lib/supabase';
 import { uploadAndAnalyze, pollAnalysis, toDbCategory, updateOutfitMeta } from '../lib/outfitApi';
 import { deleteOutfit } from '../lib/historyApi';
@@ -30,10 +32,6 @@ function receiptStamp(d: Date) {
 }
 
 // Short toast-friendly code from a pipeline error string (e.g. 'UPLOAD_FAILED: …').
-function shortCode(err: string) {
-  return err.split(':')[0].trim();
-}
-
 function dayKeyOf(d: Date) {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
@@ -130,7 +128,7 @@ function AestheticBar({ label, pct, delay }: { label: string; pct: number; delay
 }
 
 export default function CameraScreen() {
-  const { navigate, update, showToast, outfitCount, captures } = useApp();
+  const { navigate, update, showToast, outfitCount, captures, analysisLog, isPremium, params } = useApp();
   const [category, setCategory] = useState('daily');
   const [photo, setPhoto] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -189,7 +187,8 @@ export default function CameraScreen() {
     setStatusText('uploading…');
     const up = await uploadAndAnalyze({ uri: p.uri, base64: p.base64, mediaType: p.mt, category });
     if (!up.ok) {
-      showToast('upload: ' + shortCode(up.error));
+      // No toast: the direct read below still gives the user a result, so a
+      // "failed" message here would appear after a successful step.
       console.warn('outft: upload failed:', up.error);
       return false;
     }
@@ -204,7 +203,6 @@ export default function CameraScreen() {
       },
     });
     if (!polled.ok) {
-      showToast('analysis: ' + shortCode(polled.error));
       console.warn('outft: analysis polling failed:', polled.error);
       return false;
     }
@@ -223,9 +221,20 @@ export default function CameraScreen() {
   // failed, the server row exists and the local record must share its id.
   const runDirect = async (p: { uri: string; base64?: string | null; mt: string }) => {
     setStatusText('Reading your style DNA…');
-    const { result: res, isMock } = await analyzeOutfitReal({ uri: p.uri, base64: p.base64, mediaType: p.mt });
-    setIsDemo(isMock);
-    setResult(res);
+    try {
+      const { result: res, isMock } = await analyzeOutfitReal({ uri: p.uri, base64: p.base64, mediaType: p.mt });
+      setIsDemo(isMock);
+      setResult(res);
+      if (!isMock) update({ analysisLog: [...analysisLog, new Date().toISOString()] });
+      track(isMock ? 'analysis_failed' : 'analysis_completed', { from: params.from ?? 'camera' }).catch(() => {});
+    } catch (e) {
+      if (e instanceof AnalyzeError && e.code === 'limit') {
+        resetOverlay();
+        navigate('paywall');
+        return;
+      }
+      throw e;
+    }
   };
 
   // Downscale to 1200px max edge before upload: full-sensor photos make the
@@ -246,6 +255,11 @@ export default function CameraScreen() {
   };
 
   const handlePicked = async (uri: string, base64?: string | null, mediaType?: string) => {
+    if (!allowanceFrom(analysisLog, isPremium).allowed) {
+      navigate('paywall');
+      return;
+    }
+    track('photo_uploaded', { from: params.from ?? 'camera' }).catch(() => {});
     const p = await shrinkForUpload(uri, base64, mediaType);
     pendingRef.current = p;
     savedRef.current = false; // new capture — allow it to be committed once
@@ -295,7 +309,7 @@ export default function CameraScreen() {
       const pic = await cameraRef.current.takePictureAsync({ quality: 0.6, base64: true });
       if (pic) handlePicked(pic.uri, pic.base64);
     } catch (e) {
-      showToast('capture failed — try again');
+      showToast('capture failed. try again');
       console.warn('outft: takePicture failed:', e);
     }
   };
@@ -308,7 +322,7 @@ export default function CameraScreen() {
       const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6, base64: true });
       if (!r.canceled && r.assets[0]) handlePicked(r.assets[0].uri, r.assets[0].base64, r.assets[0].mimeType);
     } catch (e) {
-      showToast('photo picker failed — try again');
+      showToast('photo picker failed. try again');
       console.warn('outft: image picker failed:', e);
     }
   };
@@ -349,7 +363,7 @@ export default function CameraScreen() {
     if (isReal && outfitId) {
       // Persist meta server-side (fail-soft; brand embedded — no brand column).
       const serverCaption = trimmedBrand
-        ? (trimmedCaption ? `brand: ${trimmedBrand} — ${trimmedCaption}` : `brand: ${trimmedBrand}`)
+        ? (trimmedCaption ? `brand: ${trimmedBrand} · ${trimmedCaption}` : `brand: ${trimmedBrand}`)
         : trimmedCaption;
       updateOutfitMeta(outfitId, {
         ...(serverCaption ? { caption: serverCaption } : {}),

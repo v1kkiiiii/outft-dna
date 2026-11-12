@@ -228,7 +228,7 @@ export default function HomeScreen() {
 
         {/* Masonry grid */}
         {feed.length === 0 ? (
-          <Text style={s.empty}>nothing here yet — try another filter</Text>
+          <Text style={s.empty}>nothing here yet. try another filter</Text>
         ) : (
           <View style={s.grid}>
             <View style={s.col}>{left.map((p, i) => renderCard(p, i, 0))}</View>

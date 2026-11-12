@@ -16,6 +16,7 @@
 // Style DNA). This is what shows the user their result immediately, and what
 // makes guest/demo captures real instead of canned.
 import { AnalysisResult, analyzeOutfit as mockAnalyze } from './data';
+import { supabase } from './lib/supabase';
 
 // The original Supabase project no longer resolves, so analysis goes to the
 // Railway server's /api/analyze (same request/response shape). Override with
@@ -36,32 +37,65 @@ export interface AnalyzeOutcome {
   isMock: boolean;
 }
 
+export type AnalyzeErrorCode = 'offline' | 'failed' | 'limit' | 'no_image';
+
+export class AnalyzeError extends Error {
+  constructor(public code: AnalyzeErrorCode, message: string) {
+    super(message);
+  }
+}
+
+async function authHeader(): Promise<Record<string, string>> {
+  if (!supabase) return {};
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    return token ? { authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Analyzes an outfit photo and throws an AnalyzeError instead of falling back
+ * to the demo pool. Used by onboarding, which must show a real error and a
+ * retry button rather than a fake read. Never logs the image.
+ */
+export async function analyzeOutfitStrict(input: AnalyzeInput): Promise<AnalysisResult> {
+  if (!input.base64) throw new AnalyzeError('no_image', 'That photo could not be read. Try another one.');
+  let res: Response;
+  try {
+    res = await fetch(ANALYZE_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ imageBase64: input.base64, mediaType: input.mediaType ?? 'image/jpeg' }),
+    });
+  } catch {
+    throw new AnalyzeError('offline', 'You look offline. Check your connection and try again.');
+  }
+  let payload: any = null;
+  try { payload = await res.json(); } catch {}
+  if (res.status === 402 || payload?.code === 'LIMIT_REACHED') {
+    throw new AnalyzeError('limit', 'You have used your free analyses for now.');
+  }
+  if (!res.ok || !payload || !Array.isArray(payload.aesthetics) || !Array.isArray(payload.tags) || typeof payload.insight !== 'string') {
+    throw new AnalyzeError('failed', 'We could not read this outfit. Try again.');
+  }
+  return payload as AnalysisResult;
+}
+
 /**
  * Analyzes an outfit photo. Falls back to the labelled local mock only if the
  * backend is unreachable or unconfigured, so the capture flow always
- * completes rather than dead-ending.
+ * completes rather than dead-ending. A free-tier limit is rethrown so the
+ * caller can show the paywall.
  */
 export async function analyzeOutfitReal(input: AnalyzeInput): Promise<AnalyzeOutcome> {
-  if (!input.base64) {
-    return { result: await mockAnalyze(input.uri), isMock: true };
-  }
   try {
-    const res = await fetch(ANALYZE_URL, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        imageBase64: input.base64,
-        mediaType: input.mediaType ?? 'image/jpeg',
-      }),
-    });
-    const payload = await res.json();
-    if (!res.ok) throw new Error(payload?.error ?? `analyze-image ${res.status}`);
-    if (!Array.isArray(payload.aesthetics) || !Array.isArray(payload.tags) || typeof payload.insight !== 'string') {
-      throw new Error('incomplete result');
-    }
-    return { result: payload as AnalysisResult, isMock: false };
+    return { result: await analyzeOutfitStrict(input), isMock: false };
   } catch (e) {
-    console.warn('outft: analyze-image failed, using mock:', e);
+    if (e instanceof AnalyzeError && e.code === 'limit') throw e;
+    console.warn('outft: analysis failed, using demo read:', e instanceof AnalyzeError ? e.code : 'error');
     return { result: await mockAnalyze(input.uri), isMock: true };
   }
 }

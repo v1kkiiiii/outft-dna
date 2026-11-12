@@ -7,7 +7,7 @@ import { Header, PillButton } from '../ui';
 export default function MessagesScreen() {
   const { navigate } = useApp();
   const invite = () => {
-    Share.share({ message: 'tracing my style DNA on OUTFT — join me' });
+    Share.share({ message: 'tracing my style DNA on OUTFT. join me' });
   };
   return (
     <View style={s.root}>

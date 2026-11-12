@@ -28,6 +28,11 @@ import CommentsScreen from './src/screens/CommentsScreen';
 import OtherProfileScreen from './src/screens/OtherProfileScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import EchoesScreen from './src/screens/EchoesScreen';
+import TermsScreen from './src/screens/TermsScreen';
+import OnboardUploadScreen from './src/screens/OnboardUploadScreen';
+import OnboardRevealScreen from './src/screens/OnboardRevealScreen';
+import OnboardShareScreen from './src/screens/OnboardShareScreen';
+import PaywallScreen from './src/screens/PaywallScreen';
 
 const SCREENS: Record<ScreenKey, React.ComponentType> = {
   signin: SignInScreen,
@@ -47,10 +52,15 @@ const SCREENS: Record<ScreenKey, React.ComponentType> = {
   otherProfile: OtherProfileScreen,
   settings: SettingsScreen,
   echoes: EchoesScreen,
+  terms: TermsScreen,
+  onboardUpload: OnboardUploadScreen,
+  onboardReveal: OnboardRevealScreen,
+  onboardShare: OnboardShareScreen,
+  paywall: PaywallScreen,
 };
 
 // Screens rendered on the dark ink background with no bottom nav
-const DARK_SCREENS: ScreenKey[] = ['signin', 'wrapped', 'premium'];
+const DARK_SCREENS: ScreenKey[] = ['signin', 'wrapped', 'premium', 'paywall'];
 const NAV_SCREENS: ScreenKey[] = ['home', 'camera', 'twins', 'profile', 'otherProfile'];
 
 function Root() {

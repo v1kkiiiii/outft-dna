@@ -68,7 +68,7 @@ export default function EchoesScreen() {
       <Header title="Echoes" onBack={goBack} />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 40 }}>
         <Text style={s.intro}>
-          Echoes are traces whose style matches this one — not necessarily people you follow. As the OUTFT community grows, echoes from across all of OUTFT appear here too.
+          Echoes are traces whose style matches this one, not necessarily people you follow. As the OUTFT community grows, echoes from across all of OUTFT appear here too.
         </Text>
 
         <SectionLabel style={{ marginTop: 24 }}>ECHOES FOR THIS LOOK</SectionLabel>

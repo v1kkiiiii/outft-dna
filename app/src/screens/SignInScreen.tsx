@@ -13,6 +13,7 @@ import {
 import { colors, fonts } from '../theme';
 import { useApp } from '../state';
 import { backendAvailable } from '../lib/supabase';
+import { FLAGS } from '../flags';
 import { resetPassword, signInWithEmail, signOutSupabase, signUpWithEmail, upsertProfile } from '../lib/authApi';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -21,7 +22,9 @@ const CREAM = colors.creamDark; // #F0EBE3
 type Path = 'email' | 'apple';
 
 export default function SignInScreen() {
-  const { update, navigate, showToast } = useApp();
+  const { update, navigate, showToast, onboardingDone } = useApp();
+  // New accounts go through onboarding (terms, five photos, first read).
+  const afterAuth = (isNew: boolean) => (FLAGS.onboarding && isNew && !onboardingDone ? 'terms' : 'home');
   const [step, setStep] = useState<1 | 2>(1);
   const [path, setPath] = useState<Path>('email');
   const [email, setEmail] = useState('');
@@ -84,7 +87,7 @@ export default function SignInScreen() {
     try {
       const r = await resetPassword(email.trim());
       if (r.ok) showToast('reset link sent (check your email)');
-      else showToast("couldn't send reset link — try again");
+      else showToast("couldn't send reset link. try again");
     } finally {
       resetBusy.current = false;
     }
@@ -105,7 +108,7 @@ export default function SignInScreen() {
       userId: null,
       authMode: 'demo',
     });
-    navigate('home');
+    navigate(afterAuth(true));
     if (offline) showToast('offline demo mode');
     else welcome(name.trim());
   };
@@ -129,6 +132,7 @@ export default function SignInScreen() {
         .replace(/[^a-z0-9_]+/g, '_')
         .replace(/^_+|_+$/g, '') || cleanEmail.split('@')[0].toLowerCase();
 
+      let isNew = false;
       let res = await signInWithEmail(cleanEmail, password);
       if (!res.ok) {
         if (res.error === 'BACKEND_UNAVAILABLE' || /network|fetch/i.test(res.error ?? '')) {
@@ -147,8 +151,9 @@ export default function SignInScreen() {
             return;
           }
           res = signup;
+          isNew = true;
         } else if (/already|registered|exists/i.test(signup.error ?? '')) {
-          setAuthError('wrong password — try again');
+          setAuthError('wrong password. try again');
           return;
         } else if (/network|fetch/i.test(signup.error ?? '') || signup.error === 'BACKEND_UNAVAILABLE') {
           finishLocal(true);
@@ -167,7 +172,7 @@ export default function SignInScreen() {
         userId: res.userId ?? null,
         authMode: 'supabase',
       });
-      navigate('home');
+      navigate(afterAuth(isNew));
       welcome(displayName);
     } catch {
       // Never crash the sign-in screen — degrade to local demo mode.

@@ -40,7 +40,7 @@ export default function OtherProfileScreen() {
     caption: person.caption,
     tags: person.postTags,
     likes: 18,
-    dna: 'Their trace runs close to yours — shared palette discipline.',
+    dna: 'Their trace runs close to yours, with shared palette discipline.',
     tone: person.colors[3],
   };
 

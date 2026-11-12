@@ -4,6 +4,8 @@ import { colors, dnaColors, fonts } from '../theme';
 import { LatestOutfit, useApp } from '../state';
 import { computeDna, fetchMyOutfits } from '../lib/historyApi';
 import { DnaWheel, Header, SectionLabel } from '../ui';
+import { SharpenPrompt } from '../components/SharpenPrompt';
+import { track } from '../lib/track';
 
 // One legend row: percentage bar eases in when results appear.
 function DnaRow({ label, pct, color, delay }: { label: string; pct: number; color: string; delay: number }) {
@@ -41,6 +43,8 @@ const EMPTY_WHEEL = [
 export default function DnaScreen() {
   const { goBack, navigate, captures } = useApp();
   const [serverItems, setServerItems] = useState<LatestOutfit[]>([]);
+
+  useEffect(() => { track('dna_viewed').catch(() => {}); }, []);
 
   // Best-effort server history; offline or signed-out we keep local captures.
   useEffect(() => {
@@ -145,6 +149,7 @@ export default function DnaScreen() {
             </Pressable>
           ))}
         </View>
+        {captures.length > 0 ? <SharpenPrompt surface="dna" /> : null}
       </ScrollView>
     </View>
   );

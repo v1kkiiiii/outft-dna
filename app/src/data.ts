@@ -172,7 +172,7 @@ export const CATEGORIES = [
 
 const ANALYSIS_POOL: AnalysisResult[] = [
   {
-    insight: 'Your trace leans quiet confidence — structured neutrals holding a calm, deliberate line.',
+    insight: 'Your trace leans quiet confidence: structured neutrals holding a calm, deliberate line.',
     aesthetics: [
       { label: 'Quiet luxury', pct: 44 }, { label: 'Old money', pct: 22 },
       { label: 'Scandi', pct: 17 }, { label: 'Coastal cool', pct: 10 }, { label: 'Eclectic', pct: 7 },
@@ -180,7 +180,7 @@ const ANALYSIS_POOL: AnalysisResult[] = [
     tags: ['structured', 'tonal', 'modern'],
   },
   {
-    insight: 'Dark utility with a soft edge — your silhouette is getting sharper while the palette stays warm.',
+    insight: 'Dark utility with a soft edge. Your silhouette is getting sharper while the palette stays warm.',
     aesthetics: [
       { label: 'Edgy minimalist', pct: 38 }, { label: 'Quiet luxury', pct: 27 },
       { label: 'Utilitarian', pct: 19 }, { label: 'Scandi', pct: 11 }, { label: 'Eclectic', pct: 5 },
@@ -188,7 +188,7 @@ const ANALYSIS_POOL: AnalysisResult[] = [
     tags: ['clean', 'dark neutral', 'utility'],
   },
   {
-    insight: 'Coastal ease traced through linen and light layers — the most relaxed your line has been this month.',
+    insight: 'Coastal ease traced through linen and light layers, the most relaxed your line has been this month.',
     aesthetics: [
       { label: 'Coastal cool', pct: 36 }, { label: 'Scandi', pct: 28 },
       { label: 'Quiet luxury', pct: 20 }, { label: 'Old money', pct: 10 }, { label: 'Eclectic', pct: 6 },
@@ -196,7 +196,7 @@ const ANALYSIS_POOL: AnalysisResult[] = [
     tags: ['airy', 'linen', 'soft structure'],
   },
   {
-    insight: 'Heritage textures, low contrast — an old money weekend reading with a modern hem.',
+    insight: 'Heritage textures, low contrast, an old money weekend reading with a modern hem.',
     aesthetics: [
       { label: 'Old money', pct: 40 }, { label: 'Quiet luxury', pct: 26 },
       { label: 'Classic', pct: 16 }, { label: 'Scandi', pct: 12 }, { label: 'Eclectic', pct: 6 },

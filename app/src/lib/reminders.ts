@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
 const WINDOWS = [
-  { hour: 9, minute: 0, body: 'morning window is open — trace today’s fit' },
+  { hour: 9, minute: 0, body: 'morning window is open. trace today’s fit' },
   { hour: 14, minute: 0, body: 'afternoon light. worth a trace.' },
   { hour: 19, minute: 0, body: 'your streak is alive. keep it.' },
 ];

@@ -6,6 +6,8 @@ import { LatestOutfit, useApp } from '../state';
 import { computeDna, fetchMyOutfits } from '../lib/historyApi';
 import { fetchPlacements } from '../lib/adsApi';
 import { DnaWheel, Photo, Rule, SectionLabel } from '../ui';
+import { SharpenPrompt } from '../components/SharpenPrompt';
+import { track } from '../lib/track';
 
 const EMPTY_WHEEL = [
   { label: 'unknown', pct: 40 },
@@ -20,6 +22,10 @@ export default function TwinsScreen() {
   const { navigate, captures } = useApp();
   const [serverItems, setServerItems] = useState<LatestOutfit[]>([]);
   const [placements, setPlacements] = useState(BRAND_PICKS);
+
+  // There are no live twin matches yet, so this records a view of the twins
+  // screen; matches: 0 keeps the metric honest until matching ships.
+  useEffect(() => { track('twin_match_viewed', { matches: 0 }).catch(() => {}); }, []);
 
   // Remote sponsored placements; fetchPlacements falls back to BRAND_PICKS
   // on any error, so this slot is never empty.
@@ -69,7 +75,7 @@ export default function TwinsScreen() {
   const invite = async () => {
     try {
       await Share.share({
-        message: 'Trace your fashion DNA with me on OUTFT — every outfit, analyzed. Your closest style twins appear as the community grows.',
+        message: 'Trace your fashion DNA with me on OUTFT. Every outfit, analyzed. Your closest style twins appear as the community grows.',
       });
     } catch {}
   };
@@ -132,6 +138,7 @@ export default function TwinsScreen() {
           <Text style={s.inviteText}>INVITE FRIENDS</Text>
         </Pressable>
       </View>
+      {hasDna ? <SharpenPrompt surface="twins" /> : null}
 
       {/* Sponsored picks — clearly labeled */}
       <SectionLabel style={{ marginTop: 32 }}>CURATED FOR YOUR DNA</SectionLabel>

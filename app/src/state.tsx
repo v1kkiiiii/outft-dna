@@ -2,13 +2,15 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AnalysisResult, Post } from './data';
 import { getSession, signOutSupabase } from './lib/authApi';
+import { track } from './lib/track';
 
 export type AuthMode = 'supabase' | 'guest' | 'demo';
 
 export type ScreenKey =
   | 'signin' | 'home' | 'camera' | 'twins' | 'profile' | 'dna' | 'wrapped'
   | 'premium' | 'messages' | 'activity' | 'postDetail' | 'collection'
-  | 'chat' | 'comments' | 'otherProfile' | 'settings' | 'echoes';
+  | 'chat' | 'comments' | 'otherProfile' | 'settings' | 'echoes'
+  | 'terms' | 'onboardUpload' | 'onboardReveal' | 'onboardShare' | 'paywall';
 
 export interface LatestOutfit {
   id: string;
@@ -37,6 +39,13 @@ interface PersistedState {
   savedPosts: Record<string, Post[]>; // user-created collection name -> saved posts
   captures: LatestOutfit[]; // every analyzed outfit, newest first
   remindersEnabled: boolean; // daily trace reminder notifications
+  termsVersion: string | null; // legal version accepted during onboarding
+  termsAcceptedAt: string | null;
+  onboardingDone: boolean;
+  onboardingResult: AnalysisResult | null; // the first combined Style DNA read
+  analysisLog: string[]; // ISO times of real analyses, for the free-tier count
+  notifyWrapped: boolean;
+  notifyTwins: boolean;
 }
 
 const DEFAULT_STATE: PersistedState = {
@@ -56,6 +65,13 @@ const DEFAULT_STATE: PersistedState = {
   savedPosts: {},
   captures: [],
   remindersEnabled: false,
+  termsVersion: null,
+  termsAcceptedAt: null,
+  onboardingDone: false,
+  onboardingResult: null,
+  analysisLog: [],
+  notifyWrapped: false,
+  notifyTwins: false,
 };
 
 const STORAGE_KEY = 'outft.app-state.v2';
@@ -66,6 +82,7 @@ export interface NavParams {
   personKey?: string;
   commentsKey?: string;
   collectionName?: string;
+  from?: string; // where a navigation came from, for experiment attribution
 }
 
 interface AppContextValue extends PersistedState {
@@ -122,6 +139,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {}
       setHydrated(true);
+      track('session_start').catch(() => {});
     })();
   }, []);
 
@@ -150,7 +168,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return h.slice(0, -1);
       });
     },
-    update: (patch) => persist({ ...state, ...patch }),
+    // Functional so several updates in a row (or after an await) never drop
+    // each other's fields by spreading a stale snapshot.
+    update: (patch) => setState((prev) => {
+      const next = { ...prev, ...patch };
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    }),
     toggleFollow: (personKey) => {
       const following = state.following.includes(personKey)
         ? state.following.filter((k) => k !== personKey)

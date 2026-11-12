@@ -90,7 +90,7 @@ export default function PostDetailScreen() {
 
   const shareOutfit = () => {
     Share.share({
-      message: shownCaption ? `${shownCaption} — traced on OUTFT` : 'Traced on OUTFT',
+      message: shownCaption ? `${shownCaption}. Traced on OUTFT` : 'Traced on OUTFT',
       ...(post.photoUri ? { url: post.photoUri } : {}),
     }).catch(() => {});
   };
