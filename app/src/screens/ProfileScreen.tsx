@@ -193,9 +193,11 @@ export default function ProfileScreen() {
         <Pressable
           onPress={() => navigate('settings')}
           hitSlop={12}
-          style={{ position: 'absolute', top: 54, right: 22 }}
+          accessibilityLabel="Settings"
+          style={st.settingsChip}
         >
-          <Text style={{ fontSize: 20, color: colors.paper }}>☰</Text>
+          <Text style={{ fontSize: 11, color: colors.paper }}>☰</Text>
+          <Text style={{ fontFamily: fonts.sans, fontSize: 9, letterSpacing: 1, color: colors.paper }}>SETTINGS</Text>
         </Pressable>
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}>
           <View style={{ height: 18, backgroundColor: colors.paper, opacity: 0.25 }} />
@@ -470,6 +472,11 @@ const st = StyleSheet.create({
   coverEditHint: {
     position: 'absolute', top: 54, left: 22, backgroundColor: 'rgba(26,25,22,0.4)',
     borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10,
+  },
+  settingsChip: {
+    position: 'absolute', top: 54, right: 22, backgroundColor: 'rgba(26,25,22,0.4)',
+    borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
   },
   avatarWrap: { marginBottom: 10 },
   avatarImg: { width: 84, height: 84, borderRadius: 42, borderWidth: 3, borderColor: colors.paper },
