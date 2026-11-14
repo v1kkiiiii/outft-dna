@@ -213,6 +213,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         userId: null,
         authMode: 'demo',
         email: '',
+        // Onboarding belongs to an account: the next account on this device
+        // goes through terms, five photos and the first read again.
+        onboardingDone: false,
+        onboardingResult: null,
+        termsVersion: null,
+        termsAcceptedAt: null,
       });
       setHistory([]);
       setScreen('signin');
