@@ -29,7 +29,7 @@ export const WEBSITE_URL = (process.env.EXPO_PUBLIC_WEBSITE_URL ?? 'https://outf
 export const TERMS_URL = `${WEBSITE_URL}/terms`;
 export const PRIVACY_URL = `${WEBSITE_URL}/privacy`;
 // Must match TERMS_VERSION / PRIVACY_VERSION in the website's lib/legal.ts.
-export const LEGAL_VERSION = '2026-11-12-draft';
+export const LEGAL_VERSION = '2026-11-15';
 
 export const ONBOARDING_PHOTOS = 5;
 export const FREE_INTRO_ANALYSES = 5;
