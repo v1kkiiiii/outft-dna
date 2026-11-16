@@ -4,7 +4,7 @@
 // saved to the camera roll.
 import React from 'react';
 import { Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
-import * as MediaLibrary from 'expo-media-library';
+import * as MediaLibrary from 'expo-media-library/legacy';
 import { captureRef } from 'react-native-view-shot';
 import { colors, dnaColors, fonts } from '../theme';
 import { AnalysisResult } from '../data';

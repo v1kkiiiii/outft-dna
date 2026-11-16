@@ -3,7 +3,7 @@ import { Animated, Dimensions, Easing, Linking, Pressable, ScrollView, StyleShee
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as MediaLibrary from 'expo-media-library';
+import * as MediaLibrary from 'expo-media-library/legacy';
 import { captureRef } from 'react-native-view-shot';
 import { colors, fonts } from '../theme';
 import { AnalysisResult, CATEGORIES } from '../data';
