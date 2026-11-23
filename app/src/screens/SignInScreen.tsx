@@ -139,8 +139,18 @@ export default function SignInScreen() {
           finishLocal(true);
           return;
         }
+        if (/not confirmed/i.test(res.error ?? '')) {
+          setAuthError('confirm your email first. check your inbox for the link, then sign in');
+          return;
+        }
         // Invalid credentials: either wrong password or no account yet — try sign-up.
         const signup = await signUpWithEmail(cleanEmail, password);
+        if (signup.ok && signup.needsConfirmation) {
+          // No session until the email link is tapped, so don't pretend the
+          // user is signed in.
+          setAuthError('check your email to confirm your account, then sign in');
+          return;
+        }
         if (signup.ok) {
           const prof = await upsertProfile(username, displayName);
           if (!prof.ok && prof.error === 'USERNAME_TAKEN') {

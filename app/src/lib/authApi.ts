@@ -8,6 +8,9 @@ export interface AuthResult {
   ok: boolean;
   error?: string;
   userId?: string;
+  // Sign-up only: true when the project requires email confirmation, so no
+  // session exists until the user taps the link in their inbox.
+  needsConfirmation?: boolean;
 }
 
 const OFFLINE = 'BACKEND_UNAVAILABLE';
@@ -17,7 +20,7 @@ export async function signUpWithEmail(email: string, password: string): Promise<
   try {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return { ok: false, error: error.message };
-    return { ok: true, userId: data.user?.id };
+    return { ok: true, userId: data.user?.id, needsConfirmation: !data.session };
   } catch (e: any) {
     return { ok: false, error: e?.message ?? 'NETWORK_ERROR' };
   }
