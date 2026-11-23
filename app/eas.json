@@ -15,16 +15,16 @@
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://ddqexxgjhouaujqiervh.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_53fICz3CL4P6QE4Q7MTy1w_em-pwybZ"
+        "EXPO_PUBLIC_SUPABASE_URL": "https://kjgystuvpgynrkxcxvga.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable__LmyuWn5T9arePhd42xb4A_O0vElcuh"
       },
       "channel": "preview"
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://ddqexxgjhouaujqiervh.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_53fICz3CL4P6QE4Q7MTy1w_em-pwybZ"
+        "EXPO_PUBLIC_SUPABASE_URL": "https://kjgystuvpgynrkxcxvga.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable__LmyuWn5T9arePhd42xb4A_O0vElcuh"
       },
       "channel": "production"
     }
