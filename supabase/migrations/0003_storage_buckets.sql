@@ -20,7 +20,8 @@ on conflict (id) do nothing;
 -- is the top-level folder, which must equal the authenticated user's uid.
 -- =========================================================================
 
-alter table storage.objects enable row level security;
+-- RLS on storage.objects is enabled by Supabase itself and the table is owned
+-- by supabase_storage_admin, so altering it here fails with "must be owner".
 
 -- ---- outfits bucket -----------------------------------------------------
 
