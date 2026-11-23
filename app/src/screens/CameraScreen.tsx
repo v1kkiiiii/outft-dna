@@ -9,6 +9,7 @@ import { colors, fonts } from '../theme';
 import { AnalysisResult, CATEGORIES } from '../data';
 import { AnalyzeError, analyzeOutfitReal } from '../analyze';
 import { allowanceFrom } from '../lib/allowance';
+import { FLAGS } from '../flags';
 import { track } from '../lib/track';
 import { backendAvailable } from '../lib/supabase';
 import { uploadAndAnalyze, pollAnalysis, toDbCategory, updateOutfitMeta } from '../lib/outfitApi';
@@ -244,8 +245,8 @@ export default function CameraScreen() {
     try {
       const shrunk = await ImageManipulator.manipulateAsync(
         uri,
-        [{ resize: { width: 1200 } }],
-        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+        [{ resize: { width: 1024 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       );
       if (shrunk.base64) return { uri: shrunk.uri, base64: shrunk.base64, mt: 'image/jpeg' };
     } catch (e) {
@@ -272,7 +273,7 @@ export default function CameraScreen() {
     setAnalyzing(true);
     setOverlayOpen(true);
 
-    if (backendAvailable()) {
+    if (backendAvailable() && FLAGS.queuePipeline) {
       const ok = await runRealPipeline(p);
       if (!ok) {
         // The queued pipeline needs sign-in, an upload, and a worker to have
@@ -306,7 +307,7 @@ export default function CameraScreen() {
     if (!cameraRef.current || analyzing) return;
     hapticTap();
     try {
-      const pic = await cameraRef.current.takePictureAsync({ quality: 0.6, base64: true });
+      const pic = await cameraRef.current.takePictureAsync({ quality: 0.6 });
       if (pic) handlePicked(pic.uri, pic.base64);
     } catch (e) {
       showToast('capture failed. try again');
@@ -319,7 +320,7 @@ export default function CameraScreen() {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) { showToast('photo permission needed'); return; }
-      const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6, base64: true });
+      const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 });
       if (!r.canceled && r.assets[0]) handlePicked(r.assets[0].uri, r.assets[0].base64, r.assets[0].mimeType);
     } catch (e) {
       showToast('photo picker failed. try again');

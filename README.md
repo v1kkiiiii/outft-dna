@@ -101,6 +101,7 @@ Changes appear in the app within 5 minutes (in-memory cache TTL).
 | `EXPO_PUBLIC_SHARPEN_TESTERS` | app | empty | Comma-separated emails that see the sharpen prompt while the flag is off |
 | `EXPO_PUBLIC_FLAG_PRICING` | app | off | Free tier limit in the app and the paywall screen. Payments are never charged |
 | `EXPO_PUBLIC_FLAG_REENGAGEMENT` | app | off | Opt-in toggles for Wrapped and twin-match messages in Settings |
+| `EXPO_PUBLIC_FLAG_QUEUE_PIPELINE` | app | off | Camera photos go through Supabase storage and the background analysis worker. Keep off until the worker is deployed, or every photo waits about 90 seconds before the direct read |
 | `FEATURE_PRICING` | server | off | Server-side free tier check on `/api/analyze` (402 `LIMIT_REACHED`) |
 | `FEATURE_REENGAGEMENT` | server | off | Enables `POST /api/admin/notify/:kind` |
 

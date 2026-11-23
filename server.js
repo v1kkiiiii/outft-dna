@@ -42,7 +42,11 @@ app.post('/api/analyze', async (req, res) => {
     const message = await client.messages.create({
       model,
       max_tokens: 1000,
-      system: `You are outft.'s style DNA engine. Analyze outfit photos and return ONLY a JSON object with no markdown, no preamble, just raw JSON:
+      // A short structured read: thinking adds seconds without improving it.
+      thinking: { type: 'disabled' },
+      // The taxonomy below is ~12k tokens and identical on every call, so
+      // cache it: later reads skip reprocessing it, which is faster and cheaper.
+      system: [{ type: 'text', cache_control: { type: 'ephemeral' }, text: `You are outft.'s style DNA engine. Analyze outfit photos and return ONLY a JSON object with no markdown, no preamble, just raw JSON:
 {"aesthetics":[{"label":"...","pct":0}],"tags":["..."],"insight":"..."}
 - aesthetics: top 4 aesthetic categories summing to 100, chosen verbatim from this taxonomy (478 labels with one-line definitions, grouped into families below). Ground each label in the specific garments/colors you can see — do not default to a broad catch-all label (Eclectic, Classic, Coastal cool, Streetwear, Minimalist, Business casual, Romantic, Understated, Preppy, Vintage prep) out of uncertainty; scan the full family for a more specific match first, and only fall back to the broad label if nothing narrower genuinely fits. Your top 4 need not share a family:
 LUXURY / HIGH FASHION:
@@ -550,7 +554,7 @@ MISCELLANEOUS NICHE:
   Biopunk — Organic, biomechanical-looking textures evoking a synthetic-biology futurism.
   Cyberpunk — Neon-accented technical black pieces evoking a dystopian high-tech-low-life future.
 - tags: 4-6 concise style descriptors (e.g. "neutral palette", "wide leg", "structured")
-- insight: one sentence max 16 words about the dominant aesthetic quality`,
+- insight: one sentence max 16 words about the dominant aesthetic quality` }],
       messages: [{
         role: 'user',
         content: [
@@ -561,7 +565,7 @@ MISCELLANEOUS NICHE:
     });
 
     usage = message.usage;
-    const raw = message.content[0]?.text || '';
+    const raw = message.content.find((b) => b.type === 'text')?.text || '';
     const match = raw.match(/\{[\s\S]*\}/);
     const result = match ? JSON.parse(match[0]) : null;
     const complete = result && Array.isArray(result.aesthetics) && Array.isArray(result.tags) && typeof result.insight === 'string';

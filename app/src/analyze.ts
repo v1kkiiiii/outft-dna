@@ -64,15 +64,22 @@ async function authHeader(): Promise<Record<string, string>> {
 export async function analyzeOutfitStrict(input: AnalyzeInput): Promise<AnalysisResult> {
   if (!input.base64) throw new AnalyzeError('no_image', 'That photo could not be read. Try another one.');
   let res: Response;
+  // A stuck request should become a retry button, not an endless spinner.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 45_000);
   try {
     res = await fetch(ANALYZE_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ imageBase64: input.base64, mediaType: input.mediaType ?? 'image/jpeg' }),
+      signal: ctrl.signal,
     });
   } catch {
+    clearTimeout(timer);
+    if (ctrl.signal.aborted) throw new AnalyzeError('failed', 'That took too long. Try again.');
     throw new AnalyzeError('offline', 'You look offline. Check your connection and try again.');
   }
+  clearTimeout(timer);
   let payload: any = null;
   try { payload = await res.json(); } catch {}
   if (res.status === 402 || payload?.code === 'LIMIT_REACHED') {

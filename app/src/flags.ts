@@ -16,6 +16,10 @@ export const FLAGS = {
   pricing: on(process.env.EXPO_PUBLIC_FLAG_PRICING, false),
   // Opt-in notification settings for daily reminders, Wrapped, twin matches.
   reengagement: on(process.env.EXPO_PUBLIC_FLAG_REENGAGEMENT, false),
+  // Camera uploads go through Supabase storage and a background analysis
+  // worker. Off until that worker is deployed: without it every photo waits
+  // for the 90 second poll to time out before the direct read runs.
+  queuePipeline: on(process.env.EXPO_PUBLIC_FLAG_QUEUE_PIPELINE, false),
 };
 
 // Testers who see the sharpen prompt even when the flag is off for everyone.

@@ -21,17 +21,23 @@ interface Slot {
   error?: string;
 }
 
-async function prepare(uri: string, base64?: string | null) {
+// 1024px is plenty to read an outfit and keeps the upload around 150 KB,
+// so it leaves the phone quickly even on slow connections.
+async function prepare(uri: string) {
   try {
     const shrunk = await ImageManipulator.manipulateAsync(
       uri,
-      [{ resize: { width: 1200 } }],
-      { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      [{ resize: { width: 1024 } }],
+      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
     );
     if (shrunk.base64) return { uri: shrunk.uri, base64: shrunk.base64 };
   } catch {}
-  return { uri, base64: base64 ?? null };
+  return { uri, base64: null };
 }
+
+// How many reads run at once. Enough to finish five photos in about the
+// time of two, without flooding the server.
+const PARALLEL_READS = 3;
 
 export default function OnboardUploadScreen() {
   const { update, navigate, showToast, captures, analysisLog } = useApp();
@@ -48,7 +54,16 @@ export default function OnboardUploadScreen() {
   const read = async (slot: Slot, index: number) => {
     patch(slot.key, { status: 'reading', error: undefined });
     try {
-      const result = await analyzeOutfitStrict({ uri: slot.uri, base64: slot.base64, mediaType: 'image/jpeg' });
+      let { uri, base64 } = slot;
+      if (!base64) {
+        const p = await prepare(slot.uri);
+        uri = p.uri;
+        base64 = p.base64;
+        slot.uri = uri;
+        slot.base64 = base64;
+        patch(slot.key, { uri, base64 });
+      }
+      const result = await analyzeOutfitStrict({ uri, base64, mediaType: 'image/jpeg' });
       patch(slot.key, { status: 'done', result });
       track('onboarding_photo_uploaded', { index: index + 1 }).catch(() => {});
     } catch (e) {
@@ -70,7 +85,9 @@ export default function OnboardUploadScreen() {
         return;
       }
       const opts: ImagePicker.ImagePickerOptions = {
-        mediaTypes: ['images'], quality: 0.7, base64: true,
+        // No base64 here: encoding a full-size photo is slow. prepare()
+        // makes a small copy and encodes that instead.
+        mediaTypes: ['images'], quality: 0.7,
         ...(source === 'library' ? { allowsMultipleSelection: true, selectionLimit: remaining } : {}),
       };
       const r = source === 'camera'
@@ -79,15 +96,23 @@ export default function OnboardUploadScreen() {
       if (r.canceled) return;
       const picked = r.assets.slice(0, remaining);
       const start = slots.length;
-      const fresh: Slot[] = [];
-      for (const a of picked) {
-        const p = await prepare(a.uri, a.base64);
-        fresh.push({ key: `${Date.now()}-${fresh.length}`, uri: p.uri, base64: p.base64, status: 'reading' });
-      }
+      const stamp = Date.now();
+      // Show the photos straight away; shrinking and reading happen behind them.
+      const fresh: Slot[] = picked.map((a, i) => ({
+        key: `${stamp}-${i}`, uri: a.uri, base64: null, status: 'reading',
+      }));
       setSlots((all) => [...all, ...fresh]);
-      // Read one at a time so progress moves in order and we never fire five
-      // model calls at once.
-      for (let i = 0; i < fresh.length; i++) await read(fresh[i], start + i);
+      setPicking(false);
+      // Read a few at a time: much faster than one by one, without firing
+      // every model call at once.
+      let next = 0;
+      const worker = async () => {
+        while (next < fresh.length) {
+          const i = next++;
+          await read(fresh[i], start + i);
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(PARALLEL_READS, fresh.length) }, worker));
     } catch {
       showToast('could not open photos. try again');
     } finally {
@@ -127,7 +152,10 @@ export default function OnboardUploadScreen() {
           Five outfits you have actually worn. The more they look like you, the sharper your first read.
         </Text>
 
-        <Text style={s.count}>{progress} of {ONBOARDING_PHOTOS}</Text>
+        <Text style={s.count}>
+          {progress} of {ONBOARDING_PHOTOS} read
+          {busy ? <Text style={s.countHint}>  ·  you can keep adding while these read</Text> : null}
+        </Text>
         <View style={s.track}>
           <View style={[s.fill, { width: `${(progress / ONBOARDING_PHOTOS) * 100}%` }]} />
         </View>
@@ -146,7 +174,10 @@ export default function OnboardUploadScreen() {
               <View key={slot.key} style={s.cell}>
                 <Photo uri={slot.uri} style={StyleSheet.absoluteFill} />
                 {slot.status === 'reading' ? (
-                  <View style={s.cellOverlay}><ActivityIndicator color={colors.paper} /></View>
+                  <View style={s.cellOverlay}>
+                    <ActivityIndicator color={colors.paper} />
+                    <Text style={s.cellReading}>reading</Text>
+                  </View>
                 ) : null}
                 {slot.status === 'done' ? (
                   <View style={s.cellBadge}><Text style={s.cellBadgeText}>✓</Text></View>
@@ -179,13 +210,13 @@ export default function OnboardUploadScreen() {
             <PillButton
               label="choose photos"
               filled
-              disabled={picking || busy || remaining <= 0}
+              disabled={picking || remaining <= 0}
               onPress={() => add('library')}
               style={{ flex: 1, paddingVertical: 14 }}
             />
             <PillButton
               label="take one"
-              disabled={picking || busy || remaining <= 0}
+              disabled={picking || remaining <= 0}
               onPress={() => add('camera')}
               style={{ flex: 1, paddingVertical: 14 }}
             />
@@ -217,6 +248,8 @@ const s = StyleSheet.create({
     backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center',
   },
   cellBadgeText: { color: colors.paper, fontSize: 12 },
+  cellReading: { fontFamily: fonts.sans, fontSize: 9, letterSpacing: 1, color: colors.paper },
+  countHint: { fontFamily: fonts.sans, fontSize: 11, letterSpacing: 0, color: colors.muted },
   cellError: { fontFamily: fonts.sans, fontSize: 9, color: colors.paper, textAlign: 'center' },
   retry: { backgroundColor: colors.paper, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 12 },
   retryText: { fontFamily: fonts.sansMedium, fontSize: 10, color: colors.ink },
