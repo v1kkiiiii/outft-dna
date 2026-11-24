@@ -53,7 +53,7 @@ function base64ToArrayBuffer(b64: string): ArrayBuffer {
   return bytes.buffer.slice(0, p) as ArrayBuffer;
 }
 
-function newUuid(): string {
+export function newUuid(): string {
   const c: any = (globalThis as any).crypto;
   if (c?.randomUUID) return c.randomUUID();
   // RFC4122 v4. Prefer secure RNG if present, else fall back to Math.random —

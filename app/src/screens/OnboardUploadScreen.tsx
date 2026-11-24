@@ -9,11 +9,14 @@ import { Photo, PillButton } from '../ui';
 import { AnalyzeError, analyzeOutfitStrict } from '../analyze';
 import { ONBOARDING_PHOTOS } from '../flags';
 import { combineReads } from '../lib/dna';
+import { newUuid } from '../lib/outfitApi';
 import { track } from '../lib/track';
 
 type SlotStatus = 'reading' | 'done' | 'failed';
 interface Slot {
   key: string;
+  // Also the outfit id the server files this read under in cloud history.
+  id: string;
   uri: string;
   base64: string | null;
   status: SlotStatus;
@@ -63,7 +66,7 @@ export default function OnboardUploadScreen() {
         slot.base64 = base64;
         patch(slot.key, { uri, base64 });
       }
-      const result = await analyzeOutfitStrict({ uri, base64, mediaType: 'image/jpeg' });
+      const result = await analyzeOutfitStrict({ uri, base64, mediaType: 'image/jpeg', outfitId: slot.id, category: 'daily' });
       patch(slot.key, { status: 'done', result });
       track('onboarding_photo_uploaded', { index: index + 1 }).catch(() => {});
     } catch (e) {
@@ -99,7 +102,7 @@ export default function OnboardUploadScreen() {
       const stamp = Date.now();
       // Show the photos straight away; shrinking and reading happen behind them.
       const fresh: Slot[] = picked.map((a, i) => ({
-        key: `${stamp}-${i}`, uri: a.uri, base64: null, status: 'reading',
+        key: `${stamp}-${i}`, id: newUuid(), uri: a.uri, base64: null, status: 'reading',
       }));
       setSlots((all) => [...all, ...fresh]);
       setPicking(false);
@@ -125,7 +128,7 @@ export default function OnboardUploadScreen() {
     if (reads.length < ONBOARDING_PHOTOS) return;
     const now = Date.now();
     const newCaptures: LatestOutfit[] = done.map((x, i) => ({
-      id: `onboard-${now}-${i}`,
+      id: x.id,
       photoUri: x.uri,
       result: x.result!,
       category: 'daily',

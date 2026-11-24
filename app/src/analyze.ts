@@ -28,6 +28,10 @@ export interface AnalyzeInput {
   uri: string;
   base64?: string | null;
   mediaType?: string;
+  // When signed in, the server saves the photo and read to the user's cloud
+  // history under this id, so the local copy and the cloud copy match.
+  outfitId?: string;
+  category?: string;
 }
 
 export interface AnalyzeOutcome {
@@ -71,7 +75,11 @@ export async function analyzeOutfitStrict(input: AnalyzeInput): Promise<Analysis
     res = await fetch(ANALYZE_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ imageBase64: input.base64, mediaType: input.mediaType ?? 'image/jpeg' }),
+      body: JSON.stringify({
+        imageBase64: input.base64,
+        mediaType: input.mediaType ?? 'image/jpeg',
+        ...(input.outfitId ? { outfitId: input.outfitId, category: input.category ?? 'daily' } : {}),
+      }),
       signal: ctrl.signal,
     });
   } catch {

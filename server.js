@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { analysisAllowance, logAiCost, registerGrowthRoutes, userFromRequest } from './server/growth.js';
+import { saveAnalysis, startDeletionJob } from './server/accounts.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -20,7 +21,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.post('/api/analyze', async (req, res) => {
-  const { imageBase64, mediaType = 'image/jpeg' } = req.body;
+  const { imageBase64, mediaType = 'image/jpeg', outfitId, category } = req.body;
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 required' });
   if (typeof imageBase64 !== 'string') return res.status(400).json({ error: 'imageBase64 must be a string' });
   if (!allowedMediaTypes.has(mediaType)) return res.status(400).json({ error: 'Unsupported image type' });
@@ -572,6 +573,10 @@ MISCELLANEOUS NICHE:
     await logAiCost({ userId, model, usage, ok: !!complete });
     if (!complete) return res.status(502).json({ error: 'The style analysis was incomplete. Please try again.' });
     res.json(result);
+    // Save to the user's cloud history after answering, so it adds no wait.
+    if (userId && outfitId) {
+      saveAnalysis({ userId, outfitId, imageBase64, mediaType, result, model, category }).catch(() => {});
+    }
   } catch (err) {
     if (usage) await logAiCost({ userId, model, usage, ok: false });
     // Log the status and message only, never the request (it holds the photo).
@@ -587,6 +592,7 @@ MISCELLANEOUS NICHE:
 });
 
 registerGrowthRoutes(app);
+startDeletionJob();
 
 app.use((err, _req, res, next) => {
   if (err?.type === 'entity.too.large') {

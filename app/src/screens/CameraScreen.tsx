@@ -12,7 +12,7 @@ import { allowanceFrom } from '../lib/allowance';
 import { FLAGS } from '../flags';
 import { track } from '../lib/track';
 import { backendAvailable } from '../lib/supabase';
-import { uploadAndAnalyze, pollAnalysis, toDbCategory, updateOutfitMeta } from '../lib/outfitApi';
+import { newUuid, uploadAndAnalyze, pollAnalysis, toDbCategory, updateOutfitMeta } from '../lib/outfitApi';
 import { deleteOutfit } from '../lib/historyApi';
 import { useApp, LatestOutfit } from '../state';
 import { hapticSelect, hapticSuccess, hapticTap } from '../haptics';
@@ -223,7 +223,14 @@ export default function CameraScreen() {
   const runDirect = async (p: { uri: string; base64?: string | null; mt: string }) => {
     setStatusText('Reading your style DNA…');
     try {
-      const { result: res, isMock } = await analyzeOutfitReal({ uri: p.uri, base64: p.base64, mediaType: p.mt });
+      // A fresh id per read, so the server can file it in the user's cloud
+      // history. (Don't read outfitId here: it is the previous render's value.)
+      const id = newUuid();
+      const { result: res, isMock } = await analyzeOutfitReal({
+        uri: p.uri, base64: p.base64, mediaType: p.mt, outfitId: id, category: toDbCategory(category),
+      });
+      // Keep a queued-pipeline row id if one was set; otherwise use this one.
+      if (!isMock) setOutfitId((prev) => prev ?? id);
       setIsDemo(isMock);
       setResult(res);
       if (!isMock) update({ analysisLog: [...analysisLog, new Date().toISOString()] });
